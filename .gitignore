@@ -5,4 +5,4 @@ __pycache__/
 *.log
 .claude/
 .MCPServer.py.swp
-snapshots/
+clab-mcp-lab/
