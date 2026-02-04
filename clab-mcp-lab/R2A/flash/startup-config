@@ -1,4 +1,4 @@
-! Startup-config last modified at Wed Feb  4 14:46:51 2026 by root
+! Startup-config last modified at Wed Feb  4 17:15:59 2026 by root
 ! device: R2A (cEOSLab, EOS-4.35.0F-44178984.4350F (engineering build))
 !
 no aaa root
@@ -65,7 +65,7 @@ interface Loopback1
 !
 interface Management0
    ip address 172.20.20.202/24
-   ipv6 address 3fff:172:20:20::4/64
+   ipv6 address 3fff:172:20:20::b/64
 !
 ip routing
 !
@@ -75,13 +75,6 @@ ip prefix-list NO-2222LO seq 10 deny 2.2.2.66/32
 ip prefix-list NO-2222LO seq 20 permit 0.0.0.0/0 le 32
 !
 ipv6 route ::/0 3fff:172:20:20::1
-!
-router multicast
-   ipv4
-      software-forwarding kernel
-   !
-   ipv6
-      software-forwarding kernel
 !
 router ospf 1
    router-id 2.2.2.2

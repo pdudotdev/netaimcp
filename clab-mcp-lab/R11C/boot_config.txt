@@ -24,7 +24,7 @@ interface Ethernet0/0
  vrf forwarding clab-mgmt
  description clab-mgmt
  ip address 172.20.20.211 255.255.255.0
- ipv6 address 3fff:172:20:20::9/64
+ ipv6 address 3fff:172:20:20::8/64
  no shutdown
 !
 interface Ethernet0/1
