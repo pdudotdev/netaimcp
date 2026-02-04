@@ -1,4 +1,4 @@
-! Startup-config last modified at Wed Feb  4 07:49:47 2026 by root
+! Startup-config last modified at Wed Feb  4 08:01:31 2026 by root
 ! device: R1A (cEOSLab, EOS-4.35.0F-44178984.4350F (engineering build))
 !
 no aaa root
@@ -32,21 +32,25 @@ interface Ethernet1
    description TO-R10C
    no switchport
    ip address 172.16.0.5/30
+   ip ospf network point-to-point
 !
 interface Ethernet2
    description TO-R11C
    no switchport
    ip address 172.16.0.9/30
+   ip ospf network point-to-point
 !
 interface Ethernet3
    description TO-R3C
    no switchport
    ip address 10.0.0.5/30
+   ip ospf network point-to-point
 !
 interface Ethernet4
    description TO-R2A
    no switchport
    ip address 10.0.0.1/30
+   ip ospf network point-to-point
 !
 interface Management0
    ip address 172.20.20.201/24

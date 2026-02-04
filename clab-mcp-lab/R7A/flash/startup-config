@@ -1,4 +1,4 @@
-! Startup-config last modified at Wed Feb  4 07:49:47 2026 by root
+! Startup-config last modified at Wed Feb  4 08:01:31 2026 by root
 ! device: R7A (cEOSLab, EOS-4.35.0F-44178984.4350F (engineering build))
 !
 no aaa root
@@ -32,11 +32,13 @@ interface Ethernet1
    description TO-R2A
    no switchport
    ip address 10.1.1.9/30
+   ip ospf network point-to-point
 !
 interface Ethernet2
    description TO-R8C
    no switchport
    ip address 10.1.1.6/30
+   ip ospf network point-to-point
 !
 interface Loopback1
    ip address 7.7.7.7/32
@@ -61,6 +63,7 @@ router multicast
 router ospf 1
    router-id 7.7.7.7
    auto-cost reference-bandwidth 100000
+   passive-interface Loopback1
    network 7.7.7.7/32 area 0.0.0.1
    network 10.1.1.4/30 area 0.0.0.1
    network 10.1.1.8/30 area 0.0.0.1
