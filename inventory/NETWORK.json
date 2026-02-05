@@ -1,0 +1,13 @@
+{
+	"R1A": {"host": "172.20.20.201", "platform": "arista_eos", "transport": "asyncssh", "cli_style": "eos"},
+	"R2A": {"host": "172.20.20.202", "platform": "arista_eos", "transport": "asyncssh", "cli_style": "eos"},
+	"R3C": {"host": "172.20.20.203", "platform": "cisco_iosxe", "transport": "asyncssh", "cli_style": "ios"},
+    "R4C": {"host": "172.20.20.204", "platform": "cisco_iosxe", "transport": "asyncssh", "cli_style": "ios"},
+    "R5C": {"host": "172.20.20.205", "platform": "cisco_iosxe", "transport": "asyncssh", "cli_style": "ios"},
+    "R6A": {"host": "172.20.20.206", "platform": "arista_eos", "transport": "asyncssh", "cli_style": "eos"},
+    "R7A": {"host": "172.20.20.207", "platform": "arista_eos", "transport": "asyncssh", "cli_style": "eos"},
+    "R8C": {"host": "172.20.20.208", "platform": "cisco_iosxe", "transport": "asyncssh", "cli_style": "ios"},
+    "R9C": {"host": "172.20.20.209", "platform": "cisco_iosxe", "transport": "asyncssh", "cli_style": "ios"},
+    "R10C": {"host": "172.20.20.210", "platform": "cisco_iosxe", "transport": "asyncssh", "cli_style": "ios"},
+    "R11C": {"host": "172.20.20.211", "platform": "cisco_iosxe", "transport": "asyncssh", "cli_style": "ios"}
+}

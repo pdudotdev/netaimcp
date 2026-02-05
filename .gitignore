@@ -5,6 +5,8 @@ __pycache__/
 *.log
 .claude/
 .MCPServer.py.swp
+**/.config-repo-ar/
+**/.git/
 clab-mcp-lab/**
 !clab-mcp-lab/**/
 !clab-mcp-lab/topology-data.json
