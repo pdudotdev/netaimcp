@@ -1,4 +1,4 @@
-# ✨ Troubleshooting CCNP Concepts with Claude AI, MCP, and Python
+# ✨ Network Automation and Troubleshooting with Claude AI, MCP, and Python
 
 [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/netaimcp)](https://github.com/pdudotdev/netaimcp/commits/main/)
 
@@ -40,12 +40,12 @@ The main tools and technologies used for building the project:
 - [x] VirtualBox/VMware
 
 ## 📋 Included Vendors
-- [x] Arista: EOS (cEOS)
-- [x] Cisco: IOS/IOS-XE (IOL)
+- [x] **Arista**: EOS (cEOS)
+- [x] **Cisco**: IOS/IOS-XE (IOL)
 
 ## 🎓 Networking Topics
 Networking topics in this topology:
-- [x] OSPF multi-area:
+- [x] **OSPF multi-area**:
   - Basic protocol config
     - Reference bandwidth
     - Point-to-point links
@@ -58,7 +58,7 @@ Networking topics in this topology:
   - Route filtering with distribute lists
   - Area types: normal, totally stubby, totally nssa
 
-- [x] EIGRP:
+- [x] **EIGRP**:
   - Basic protocol config
     - Passive interfaces
     - MD5 authentication
@@ -67,7 +67,7 @@ Networking topics in this topology:
   - Route redistribution
   - Default metric via route map
 
-- [x] Others:
+- [x] **Others**:
   - Policy-Based Routing
   - IP SLA icmp-echo
 
@@ -106,8 +106,52 @@ Networking topics in this topology:
 ⚠️ **NOTE**: Since these config files above are considered the **default configuration** for this network, they are going to be your fallback config whenever you use `containerlab redeploy -t lab.yml`
 
 ## 🔥 Automation and Troubleshooting
+Troubleshooting scenarios are located in the [**troubleshoot.md**](https://github.com/pdudotdev/netaimcp/blob/main/scenarios/troubleshoot.md) file that is going to be constantly updated as the network grows in complexity.
 
+✍️ **NOTE**: Each scenario is created by starting from the **default configuration** of the network (see [Network Topology](#-network-topology)) and intentionally breaking one or more things to trigger a certain type of failure. Then, with just a simple prompt, we enable Claude to use the MCP server for identifying the root cause(s) and fixing the network. 
 
+### Example of scenario workflow
+Each **troubleshooting scenario** has the following structure:
+- [x] **Summary**:
+```
+R3C lost R2A as an OSPF neighbor.
+```
+- [x] **Causing Failure**: 
+```
+Changing the MTU on R2A to cause a mismatch, using the commands below:
+
+interface FastEthernet0/1
+ mtu 1400
+```
+- [x] **Confirming Failure**:
+```
+Checking the effects of the commands above:
+
+show interfaces FastEthernet0/1
+show ip ospf neighbor
+```
+- [x] **Claude Prompt**:
+```
+Why is the R2A-R3C OSPF neighborship broken? Can you check and fix please?
+```
+- [x] **Commands by Claude**:
+```
+show ip ospf neighbor
+show interfaces FastEthernet0/1
+show ip ospf interface FastEthernet0/1
+interface FastEthernet0/1
+mtu 1500
+```
+- [x] **Confirmation by Claude**:
+```
+Problem found!
+Cause: The MTU on R2A's FastEthernet0/1 doesn't match R3C's.
+<...>
+Fix: Setting MTU to 1500 on R2A's FastEthernet0/1.
+OSPF adjacency is now fully operational.
+```
+
+📂 **NOTE**: All automation (non-troubleshooting) scenarios related to **network information gathering**, **pushing changes to multiple network devices**, **network state validation** etc. are going to be added in an upcoming release. The priority now is **troubleshooting**.
 
 ## 🧪 Planned Upgrades
 - [ ] Adding BGP

@@ -1,4 +1,4 @@
-! Startup-config last modified at Wed Feb  4 17:15:57 2026 by root
+! Startup-config last modified at Thu Feb  5 05:53:16 2026 by root
 ! device: R7A (cEOSLab, EOS-4.35.0F-44178984.4350F (engineering build))
 !
 no aaa root
@@ -54,6 +54,13 @@ interface Management0
 ip routing
 !
 ipv6 route ::/0 3fff:172:20:20::1
+!
+router multicast
+   ipv4
+      software-forwarding kernel
+   !
+   ipv6
+      software-forwarding kernel
 !
 router ospf 1
    router-id 7.7.7.7
