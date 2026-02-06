@@ -1,4 +1,4 @@
-# ✨ Network Automation and Troubleshooting with Claude AI, MCP, and Python
+# ✨ Network Automation and Troubleshooting with Claude, MCP, and Python
 
 [![Stable Release](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/pdudotdev/netaimcp/releases/tag/v1.0.0)
 [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/netaimcp)](https://github.com/pdudotdev/netaimcp/commits/main/)
@@ -16,7 +16,7 @@
   - [📜 License](#-license)
 
 ## 🔭 Overview
-The purpose of this project is to showcase the capabilities of **Claude AI** and **MCP**, combined with **Python** and **Scrapli**, in regards to network automation and troubleshooting.
+The purpose of this project is to showcase the capabilities of **Claude** and **MCP**, combined with **Python** and **Scrapli**, in regards to network automation and troubleshooting.
 
 By design, the project is **multi-vendor**, **multi-protocol**, **multi-area/multi-AS**, **OSI L3-focused**, in order to automate and troubleshoot various scenarios in a diverse and complex network.
 
@@ -41,8 +41,8 @@ The main tools and technologies used for building the project:
 - [x] Docker
 - [x] Python
 - [x] Scrapli
+- [x] Ubuntu
 - [x] VS Code
-- [x] Ubuntu 24
 - [x] VirtualBox/VMware
 
 ## 📋 Included Vendors
