@@ -21,7 +21,7 @@ By design, the project is **multi-vendor**, **multi-protocol**, **multi-area/mul
 
 I am **NOT** going to explain here how to: build the topology • write the MCP server in Python • enhance the MCP server with new tools. I already did that from scratch in my beginner-friendly [**Udemy course**](https://www.udemy.com/course/mcp-server/?referralCode=D62613A8194D2D915B55). 
 
-Join the course to get:
+**Join the course to get:**
 - [x] **Lab manual** (PDF) for this project
 - [x] Full instructor support (Q&A)
 - [x] Regular upgrades (monthly)
@@ -82,7 +82,7 @@ Networking topics in this topology:
 ![topology](/topology/TOPOLOGY.png)
 
 - [x] Containerlab YAML file:
-  - [Lab topology](lab.yml)
+  - [**Lab topology**](lab.yml)
 
 - [x] Router naming convention:
   - **RXY** where:
@@ -170,7 +170,7 @@ Neighbor ID     Instance VRF      Pri State                  Dead Time   Address
 📂 **NOTE**: All automation (non-troubleshooting) scenarios related to **network information gathering**, **pushing changes to multiple network devices**, **network state validation** etc. are going to be added in an upcoming release (see the **Lab Manual** inside the course). The priority now is **troubleshooting**.
 
 ## ⚠️ Disclaimer
-This project is intended for educational purposes only. Users are responsible for building their own lab environment and meeting the necessary conditions (e.g., RAM/vCPU, router OS images, Claude subscription/API key, etc.). Use this tool responsibly.
+This project is intended for educational purposes only. Users are responsible for building their own lab environment and meeting the necessary conditions (e.g., RAM/vCPU, router OS images, Claude subscription/API key, etc.).
 
 ## 📜 License
 Licensed under the [GNU GENERAL PUBLIC LICENSE Version 3](https://github.com/pdudotdev/netaimcp/blob/main/LICENSE).
