@@ -11,7 +11,6 @@
   - [🎓 Networking Topics](#-networking-topics)
   - [🔄 Network Topology](#-network-topology)
   - [🔥 Automation and Troubleshooting](#-automation-and-troubleshooting)
-  - [⬆️ Planned Upgrades](#-planned-upgrades)
   - [⚠️ Disclaimer](#-disclaimer)
   - [📜 License](#-license)
 
@@ -20,14 +19,13 @@ The purpose of this project is to showcase the capabilities of **Claude** and **
 
 By design, the project is **multi-vendor**, **multi-protocol**, **multi-area/multi-AS**, **OSI L3-focused**, in order to automate and troubleshoot various scenarios in a diverse and complex network.
 
-I am **NOT** going to explain here how to: build the topology • write the MCP server in Python • enhance the MCP server with new tools. I already did that from scratch in my beginner-friendly [**Udemy course**](https://www.udemy.com/course/mcp-server/?referralCode=D62613A8194D2D915B55). Feel free to join for instructor support, regular updates, access to Discord etc.
+I am **NOT** going to explain here how to: build the topology • write the MCP server in Python • enhance the MCP server with new tools. I already did that from scratch in my beginner-friendly [**Udemy course**](https://www.udemy.com/course/mcp-server/?referralCode=D62613A8194D2D915B55). 
 
-However, I do provide:
-- [x] The **topology diagram** PNG
-- [x] The **startup config** of each router
-- [x] The **Containerlab YAML file** defining the network
-- [x] The **NETWORK.json** inventory file
-- [x] The **MCPServer.py** code
+Join the course to get:
+- [x] **Lab manual** (PDF) for this project
+- [x] Full instructor support (Q&A)
+- [x] Regular upgrades (monthly)
+- [x] Access to a private Discord
 
 ⚠️ **NOTE**: This project assumes at least **CCNA**-level knowledge (**CCNP** preferred), as well as familiarity with **Linux** terminal commands, **Python** syntax, and multi-vendor **CLIs**.
 
@@ -105,9 +103,7 @@ Networking topics in this topology:
   - R10C: [nvram_id](https://github.com/pdudotdev/netaimcp/tree/main/clab-mcp-lab/R10C)
   - R11C: [nvram_id](https://github.com/pdudotdev/netaimcp/tree/main/clab-mcp-lab/R11C)
 
-⚠️ **NOTE**: To see the contents of the **nvram** files for Cisco routers, simply use **Notepad** in Windows or **cat** in Linux.
-
-⚠️ **NOTE**: The config files above are considered the **default configuration** for this network, and their contents may change (or new files may be added) with each new **Release**, as the topology grows in complexity. Watch the release number and notes for this repository.
+⚠️ **NOTE**: The config files above are considered the **default configuration** for this network, and their contents may change (or new files may be added) with each **new release**, as the topology grows in complexity. Watch the release number and notes for this repository.
 
 ⚠️ **NOTE**: Since these config files above are considered the **default configuration** for this network, they are going to be your fallback config whenever you use `containerlab redeploy -t lab.yml`
 
@@ -171,12 +167,7 @@ Neighbor ID     Instance VRF      Pri State                  Dead Time   Address
 6.6.6.6         1        default  0   FULL                   00:00:33    10.1.1.13       Ethernet1 
 ```
 
-📂 **NOTE**: All automation (non-troubleshooting) scenarios related to **network information gathering**, **pushing changes to multiple network devices**, **network state validation** etc. are going to be added in an upcoming release. The priority now is **troubleshooting**.
-
-## 🧪 Planned Upgrades
-- [ ] Adding BGP
-- [ ] Adding IS-IS
-- [ ] Adding new vendors
+📂 **NOTE**: All automation (non-troubleshooting) scenarios related to **network information gathering**, **pushing changes to multiple network devices**, **network state validation** etc. are going to be added in an upcoming release (see the **Lab Manual** inside the course). The priority now is **troubleshooting**.
 
 ## ⚠️ Disclaimer
 This project is intended for educational purposes only. Users are responsible for building their own lab environment and meeting the necessary conditions (e.g., RAM/vCPU, router OS images, Claude subscription/API key, etc.). Use this tool responsibly.
