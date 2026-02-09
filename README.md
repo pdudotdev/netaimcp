@@ -90,23 +90,6 @@ Networking topics in this topology:
     - **X**: device number id
     - **Y**: vendor (A-Arista, C-Cisco, etc.)
 
-- [x] Router configuration files:
-  - R1A: [startup-config](https://github.com/pdudotdev/netaimcp/blob/main/clab-mcp-lab/R1A/flash/)
-  - R2A: [startup-config](https://github.com/pdudotdev/netaimcp/blob/main/clab-mcp-lab/R2A/flash/)
-  - R3C: [nvram_id](https://github.com/pdudotdev/netaimcp/blob/main/clab-mcp-lab/R3C)
-  - R4C: [nvram_id](https://github.com/pdudotdev/netaimcp/tree/main/clab-mcp-lab/R4C)
-  - R5C: [nvram_id](https://github.com/pdudotdev/netaimcp/tree/main/clab-mcp-lab/R5C)
-  - R6A: [startup-config](https://github.com/pdudotdev/netaimcp/blob/main/clab-mcp-lab/R6A/flash/)
-  - R7A: [startup-config](https://github.com/pdudotdev/netaimcp/blob/main/clab-mcp-lab/R7A/flash/)
-  - R8C: [nvram_id](https://github.com/pdudotdev/netaimcp/tree/main/clab-mcp-lab/R8C)
-  - R9C: [nvram_id](https://github.com/pdudotdev/netaimcp/tree/main/clab-mcp-lab/R9C)
-  - R10C: [nvram_id](https://github.com/pdudotdev/netaimcp/tree/main/clab-mcp-lab/R10C)
-  - R11C: [nvram_id](https://github.com/pdudotdev/netaimcp/tree/main/clab-mcp-lab/R11C)
-
-⚠️ **NOTE**: The config files above are considered the **default configuration** for this network, and their contents may change (or new files may be added) with each **new release**, as the topology grows in complexity. Watch the release number and notes for this repository.
-
-⚠️ **NOTE**: Since these config files above are considered the **default configuration** for this network, they are going to be your fallback config whenever you use `containerlab redeploy -t lab.yml`
-
 ## 🔥 Automation and Troubleshooting
 Troubleshooting scenarios are located in the [**troubleshoot.md**](https://github.com/pdudotdev/netaimcp/blob/main/scenarios/troubleshoot.md) file that is going to be constantly updated as the network grows in complexity.
 
