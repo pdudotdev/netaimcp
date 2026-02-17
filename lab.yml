@@ -9,9 +9,9 @@ topology:
       kind: arista_ceos
       image: ceos:4.35.0F
       mgmt-ipv4: 172.20.20.201
-    R2A:
-      kind: arista_ceos
-      image: ceos:4.35.0F
+    R2C:
+      kind: cisco_iol
+      image: vrnetlab/cisco_iol:17.16.01a
       mgmt-ipv4: 172.20.20.202
     R3C:
       kind: cisco_iol
@@ -49,18 +49,72 @@ topology:
       kind: cisco_iol
       image: vrnetlab/cisco_iol:17.16.01a
       mgmt-ipv4: 172.20.20.211
+    R12C:
+      kind: cisco_iol
+      image: vrnetlab/cisco_iol:17.16.01a
+      mgmt-ipv4: 172.20.20.212
+    R13C:
+      kind: cisco_iol
+      image: vrnetlab/cisco_iol:17.16.01a
+      mgmt-ipv4: 172.20.20.213
+    R14C:
+      kind: cisco_iol
+      image: vrnetlab/cisco_iol:17.16.01a
+      mgmt-ipv4: 172.20.20.214
+    R15C:
+      kind: cisco_iol
+      image: vrnetlab/cisco_iol:17.16.01a
+      mgmt-ipv4: 172.20.20.215
+    R16C:
+      kind: cisco_iol
+      image: vrnetlab/cisco_iol:17.16.01a
+      mgmt-ipv4: 172.20.20.216
+    R17C:
+      kind: cisco_iol
+      image: vrnetlab/cisco_iol:17.16.01a
+      mgmt-ipv4: 172.20.20.217
+    R18M:
+      kind: mikrotik_ros
+      image: vrnetlab/mikrotik_routeros:7.20.8
+      mgmt-ipv4: 172.20.20.218
+    R19M:
+      kind: mikrotik_ros
+      image: vrnetlab/mikrotik_routeros:7.20.8
+      mgmt-ipv4: 172.20.20.219
+    R20M:
+      kind: mikrotik_ros
+      image: vrnetlab/mikrotik_routeros:7.20.8
+      mgmt-ipv4: 172.20.20.220
   links:
     - endpoints: ["R1A:eth1", "R10C:Ethernet0/1"]
     - endpoints: ["R1A:eth2", "R11C:Ethernet0/1"]
     - endpoints: ["R10C:Ethernet0/2", "R11C:Ethernet0/2"]
     - endpoints: ["R1A:eth3", "R3C:Ethernet0/3"]
-    - endpoints: ["R1A:eth4", "R2A:eth3"]
+    - endpoints: ["R1A:eth4", "R2C:Ethernet0/3"]
     - endpoints: ["R3C:Ethernet0/2", "R4C:Ethernet0/1"]
     - endpoints: ["R3C:Ethernet0/1", "R5C:Ethernet0/1"]
     - endpoints: ["R4C:Ethernet0/2", "R5C:Ethernet0/2"]
-    - endpoints: ["R2A:eth4", "R3C:Ethernet1/0"]
-    - endpoints: ["R2A:eth2", "R7A:eth1"]
-    - endpoints: ["R2A:eth1", "R6A:eth1"]
+    - endpoints: ["R2C:Ethernet1/0", "R3C:Ethernet1/0"]
+    - endpoints: ["R2C:Ethernet0/2", "R7A:eth1"]
+    - endpoints: ["R2C:Ethernet0/1", "R6A:eth1"]
     - endpoints: ["R7A:eth2", "R8C:Ethernet0/2"]
     - endpoints: ["R6A:eth2", "R8C:Ethernet0/1"]
     - endpoints: ["R8C:Ethernet0/3", "R9C:Ethernet0/1"]
+    - endpoints: ["R2C:Ethernet1/1", "R12C:Ethernet0/1"]
+    - endpoints: ["R2C:Ethernet1/2", "R16C:Ethernet1/1"]
+    - endpoints: ["R3C:Ethernet1/2", "R12C:Ethernet1/3"]
+    - endpoints: ["R3C:Ethernet1/1", "R16C:Ethernet1/2"]
+    - endpoints: ["R16C:Ethernet1/0", "R17C:Ethernet1/0"]
+    - endpoints: ["R12C:Ethernet1/1", "R13C:Ethernet1/0"]
+    - endpoints: ["R12C:Ethernet1/2", "R15C:Ethernet1/2"]
+    - endpoints: ["R12C:Ethernet1/0", "R14C:Ethernet1/0"]
+    - endpoints: ["R14C:Ethernet1/1", "R15C:Ethernet1/1"]
+    - endpoints: ["R13C:Ethernet1/1", "R15C:Ethernet1/0"]
+    - endpoints: ["R14C:Ethernet1/2", "R18M:eth1"] #R18M:eth1 is ether2 on the device
+    - endpoints: ["R14C:Ethernet1/3", "R19M:eth3"] #R19M:eth3 is ether4 on the device
+    - endpoints: ["R17C:Ethernet0/1", "R18M:eth2"] #R18M:eth2 is ether3 on the device
+    - endpoints: ["R17C:Ethernet0/2", "R19M:eth2"] #R19M:eth2 is ether3 on the device
+    - endpoints: ["R18M:eth3", "R19M:eth1"]        #R18M:eth3 is ether4 on the device; R19M:eth1 is ether2 on the device
+    - endpoints: ["R18M:eth4", "R20M:eth1"]        #R18M:eth4 is ether5 on the device; R20M:eth1 is ether2 on the device
+    - endpoints: ["R19M:eth4", "R20M:eth2"]        #R19M:eth4 is ether5 on the device; R20M:eth2 is ether3 on the device
+    # The MikroTik / Containerlab interface naming conventions are explained here: https://containerlab.dev/manual/kinds/vr-ros/#interface-naming

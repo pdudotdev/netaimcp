@@ -1,0 +1,8 @@
+fastmcp
+scrapli[genie]
+scrapli-community
+asyncssh
+aiohttp
+python-dotenv
+pydantic
+pytz

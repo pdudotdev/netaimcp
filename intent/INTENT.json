@@ -4,6 +4,9 @@
       "hostname": {
         "name": "R1A"
       },
+      "roles": {
+        "type": ["ABR"]
+      },
       "ospf": {
         "process_id": 1,
         "router_id": "1.1.1.1",
@@ -13,9 +16,12 @@
         }
       }
     },
-    "R2A": {
+    "R2C": {
       "hostname": {
-        "name": "R2A"
+        "name": "R2C"
+      },
+      "roles": {
+        "type": ["ABR", "ASBR"]
       },
       "ospf": {
         "process_id": 1,
@@ -25,9 +31,16 @@
             "0.0.0.1": ["10.1.1.8/30", "10.1.1.12/30", "2.2.2.66/32"]
         }
       },
+      "bgp": {
+        "as": "1010"
+      }
+    },
     "R3C": {
       "hostname": {
         "name": "R3C"
+      },
+      "roles": {
+        "type": ["ASBR", "redistribution"]
       },
       "ospf": {
         "process_id": 1,
@@ -39,11 +52,17 @@
       "eigrp": {
         "as_number": 10,
         "networks": ["192.168.10.0/30", "192.168.10.4/30"]
+      },
+      "bgp": {
+        "as": "1010"
       }
     },
     "R4C": {
       "hostname": {
         "name": "R4C"
+      },
+      "roles": {
+        "type": ["regular"]
       },
       "eigrp": {
         "as_number": 10,
@@ -54,6 +73,9 @@
       "hostname": {
         "name": "R5C"
       },
+      "roles": {
+        "type": ["regular"]
+      },
       "eigrp": {
         "as_number": 10,
         "networks": ["192.168.10.4/30", "192.168.10.8/30", "5.5.1.0/24", "5.5.2.0/24"]
@@ -62,6 +84,9 @@
     "R6A": {
       "hostname": {
         "name": "R6A"
+      },
+      "roles": {
+        "type": ["regular"]
       },
       "ospf": {
         "process_id": 1,
@@ -75,6 +100,9 @@
       "hostname": {
         "name": "R7A"
       },
+      "roles": {
+        "type": ["regular"]
+      },
       "ospf": {
         "process_id": 1,
         "router_id": "7.7.7.7",
@@ -86,6 +114,9 @@
     "R8C": {
       "hostname": {
         "name": "R8C"
+      },
+      "roles": {
+        "type": ["ASBR", "redistribution"]
       },
       "ospf": {
         "process_id": 1,
@@ -103,6 +134,9 @@
       "hostname": {
         "name": "R9C"
       },
+      "roles": {
+        "type": ["regular"]
+      },
       "eigrp": {
         "as_number": 20,
         "networks": ["192.168.20.0/30", "9.9.1.1/24", "9.9.2.1/24", "9.9.3.1/24"]
@@ -111,6 +145,9 @@
     "R10C": {
       "hostname": {
         "name": "R10C"
+      },
+      "roles": {
+        "type": ["regular"]
       },
       "ospf": {
         "process_id": 1,
@@ -124,6 +161,9 @@
       "hostname": {
         "name": "R11C"
       },
+      "roles": {
+        "type": ["regular"]
+      },
       "ospf": {
         "process_id": 1,
         "router_id": "11.11.11.11",
@@ -131,7 +171,123 @@
             "0.0.0.2": ["172.16.0.0/30", "172.16.0.8/30", "11.11.11.0/24"]
         }
       }
+    },
+    "R12C": {
+      "hostname": {
+        "name": "R12C"
+      },
+      "roles": {
+        "type": ["ISP A", "BGP", "Route Reflector"]
+      },
+      "bgp": {
+        "as": "4040"
+      }
+    },
+    "R13C": {
+      "hostname": {
+        "name": "R13C"
+      },
+      "roles": {
+        "type": ["ISP A", "BGP"]
+      },
+      "bgp": {
+        "as": "4040"
+      }
+    },
+    "R14C": {
+      "hostname": {
+        "name": "R14C"
+      },
+      "roles": {
+        "type": ["ISP A", "BGP"]
+      },
+      "bgp": {
+        "as": "4040"
+      }
+    },
+    "R15C": {
+      "hostname": {
+        "name": "R15C"
+      },
+      "roles": {
+        "type": ["ISP A", "BGP"]
+      },
+      "bgp": {
+        "as": "4040"
+      }
+    },
+    "R16C": {
+      "hostname": {
+        "name": "R16C"
+      },
+      "roles": {
+        "type": ["ISP B", "BGP"]
+      },
+      "bgp": {
+        "as": "5050"
+      }
+    },
+    "R17C": {
+      "hostname": {
+        "name": "R17C"
+      },
+      "roles": {
+        "type": ["ISP B", "BGP"]
+      },
+      "bgp": {
+        "as": "5050"
+      }
+    },
+    "R18M": {
+      "hostname": {
+        "name": "R18M"
+      },
+      "roles": {
+        "type": ["ASBR"]
+      },
+      "ospf": {
+        "instance": "default",
+        "router_id": "18.18.18.18",
+        "areas": {
+            "0.0.0.0": ["172.16.77.0/30", "172.16.77.4/30", "18.18.18.0/24"]
+        }
+      },
+      "bgp": {
+        "as": "2020"
+      }
+    },
+    "R19M": {
+      "hostname": {
+        "name": "R19M"
+      },
+      "roles": {
+        "type": ["ASBR"]
+      },
+      "ospf": {
+        "instance": "default",
+        "router_id": "19.19.19.19",
+        "areas": {
+            "0.0.0.0": ["172.16.77.0/30", "172.16.77.8/30", "19.19.19.0/24"]
+        }
+      },
+      "bgp": {
+        "as": "2020"
+      }
+    },
+    "R20M": {
+      "hostname": {
+        "name": "R20M"
+      },
+      "roles": {
+        "type": ["regular"]
+      },
+      "ospf": {
+        "instance": "default",
+        "router_id": "20.20.20.20",
+        "areas": {
+            "0.0.0.0": ["172.16.77.4/30", "172.16.77.8/30", "20.20.20.0/24"]
+        }
+      }
     }
   }
-}
 }

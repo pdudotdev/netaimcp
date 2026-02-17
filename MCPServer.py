@@ -2,12 +2,28 @@ import os
 import json
 import time
 import pytz
+import aiohttp
 import asyncio
 from fastmcp import FastMCP
 from dotenv import load_dotenv
 from scrapli import AsyncScrapli
-from pydantic import BaseModel, Field
 from datetime import datetime, time as dt_time
+from platforms.platform_map import PLATFORM_MAP
+from input_models.models import (
+    OspfQuery,
+    EigrpQuery,
+    BgpQuery,
+    InterfacesQuery,
+    RoutingQuery,
+    RoutingPolicyQuery,
+    PingInput,
+    TracerouteInput,
+    ShowCommand,
+    ConfigCommand,
+    EmptyInput,
+    SnapshotInput,
+    RiskInput
+)
 
 # Load environment variables
 load_dotenv()
@@ -16,6 +32,133 @@ PASSWORD = os.getenv("ROUTER_PASSWORD")
 
 if not USERNAME or not PASSWORD:
     raise RuntimeError("Credentials not set")
+
+# Global command cache and TTL to avoid duplicate commands
+CACHE = {}  # {(device, command): (timestamp, result)}
+CMD_TTL = 5 # in seconds
+
+def cache_get(device, command, ttl):
+    key = (device, command.strip().lower())
+    if key in CACHE:
+        ts, result = CACHE[key]
+        if time.time() - ts < ttl:
+            return result
+    return None
+
+def cache_set(device, command, result):
+    key = (device, command.strip().lower())
+    CACHE[key] = (time.time(), result)
+
+# Global command executor (reusable across tools)
+async def execute_command(device_name: str, cmd_or_action: str, ttl: int = CMD_TTL) -> dict:
+    device = devices.get(device_name)
+    if not device:
+        return {"error": "Unknown device"}
+
+    cli_style = device["cli_style"]
+    transport = device["transport"]
+
+    # Cache lookup
+    if ttl > 0:
+        cached = cache_get(device_name, str(cmd_or_action), ttl)
+        if cached:
+            cached["cache_hit"] = True
+            return cached
+
+    try:
+        # REST transport
+        if transport == "rest":
+            action = cmd_or_action  # dict with method/path
+            raw_output = await execute_rest(device, cmd_or_action)
+            parsed_output = raw_output
+
+        # eAPI transport
+        elif transport == "eapi":
+            raw_output = await execute_eapi(device, cmd_or_action)
+            parsed_output = raw_output
+
+        # SSH transport
+        elif transport == "asyncssh":
+            connection = {
+                "host": device["host"],
+                "platform": device["platform"],
+                "transport": device["transport"],
+                "auth_username": USERNAME,
+                "auth_password": PASSWORD,
+                "auth_strict_key": False,
+            }
+
+            async with AsyncScrapli(**connection) as conn:
+                response = await conn.send_command(cmd_or_action)
+                
+                # Always grab raw output (needed if parsing fails)
+                raw_output = response.result
+
+                parsed_output = None
+
+                # Scrapli Genie integration (only for IOS devices)
+                if cli_style == "ios":
+                    try:
+                        parsed_output = response.genie_parse_output()
+                    except Exception:
+                        parsed_output = None
+    
+    except Exception as e:
+        return {
+            "device": device_name,
+            "cli_style": cli_style,
+            "error": str(e),
+        }
+    
+    # Token-efficient result: parsed OR raw, not both
+    result = {
+        "device": device_name,
+        "cli_style": cli_style,
+        "cache_hit": False,
+    }
+
+    if parsed_output:
+        result["parsed"] = parsed_output
+    else:
+        result["raw"] = raw_output
+    
+    # Cache store
+    if ttl > 0:
+        cache_set(device_name, str(cmd_or_action), result)
+
+    return result
+
+# Executor for eAPI
+async def execute_eapi(device, command):
+    url = f"https://{device['host']}/command-api"
+    auth = aiohttp.BasicAuth(USERNAME, PASSWORD)
+
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "runCmds",
+        "params": {"version": 1, "cmds": [command]},
+        "id": 1,
+    }
+
+    async with aiohttp.ClientSession(auth=auth) as session:
+        async with session.post(url, json=payload, ssl=False) as resp:
+            data = await resp.json()
+            return data["result"]
+
+# Executor helper for REST
+async def execute_rest(device, action):
+    url = f"http://{device['host']}{action['path']}"
+    auth = aiohttp.BasicAuth(USERNAME, PASSWORD)
+
+    async with aiohttp.ClientSession(auth=auth) as session:
+        if action["method"] == "GET":
+            async with session.get(url) as resp:
+                return await resp.json()
+
+        elif action["method"] == "POST":
+            payload = action.get("body") or action.get("default_body", {})
+            async with session.post(url, json=payload) as resp:
+                return await resp.json()
 
 # Instantiate the FastMCP class
 mcp = FastMCP("mcp_automation")
@@ -29,54 +172,304 @@ if not os.path.exists(INVENTORY_FILE):
 with open(INVENTORY_FILE) as f:
     devices = json.load(f)
 
-# Show command - input model
-class ShowCommand(BaseModel):
-    """Run a show command against a network device."""
-    device: str = Field(..., description="Device name from inventory (e.g. R1, R2, R3)")
-    command: str = Field(..., description="Show command to execute on the device")
-
-# Config commands - input model
-class ConfigCommand(BaseModel):
-    """Send configuration commands to one or more devices."""
-    devices: list[str] = Field(..., description="Device names from inventory (e.g. ['R1','R2','R3'])")
-    commands: list[str] = Field(..., description="Configuration commands to apply")
-
-# Empty placeholder - input model
-class EmptyInput(BaseModel):
-    pass
-
-# Snapshot - input model
-class SnapshotInput(BaseModel):
-    devices: list[str] = Field(..., description="Devices to snapshot (e.g. R1, R2, R3)")
-    profile: str = Field(..., description="Snapshot profile (e.g. ospf, stp)")
-
-# Risk score - input model
-class RiskInput(BaseModel):
-    devices: list[str] = Field(..., description="Devices affected by the config change")
-    commands: list[str] = Field(..., description="The configuration commands to apply")
-
-# Read config tool
-@mcp.tool(name="run_show")
-async def run_show(params: ShowCommand) -> str:
+# OSPF query tool
+@mcp.tool(name="get_ospf")
+async def get_ospf(params: OspfQuery) -> dict:
     """
-    Execute a show command asynchronously using Scrapli via SSH.
+    Retrieve OSPF operational data from a network device.
+
+    Use this tool to investigate OSPF adjacency, database, and configuration
+    issues during troubleshooting.
+
+    Supported queries:
+    - neighbors   → Check OSPF neighbor state and adjacency health
+    - database    → Inspect LSDB contents and LSA propagation
+    - borders     → Identify ABRs/ASBRs and inter-area routing
+    - config      → Review OSPF configuration on the device
+    - interfaces  → Verify OSPF-enabled interfaces and parameters
+    - details     → Vendor-specific detailed OSPF information (if available)
+
+    Notes:
+    - Not all queries are supported on all platforms.
+    - If a query is unsupported, the tool returns an error.
+    - Results may be served from cache (short-lived) to improve efficiency.
+    - Use this tool before running generic show commands.
+
+    Recommended usage:
+    - Start with "neighbors" to verify adjacency.
+    - Use "database" when investigating missing routes.
+    - Use "config" to confirm intent vs actual configuration.
+
+    Use this tool before falling back to run_show.
     """
     device = devices.get(params.device)
     if not device:
-        return f"Unknown device. Available devices are: {list(devices.keys())}"
+        return {"error": f"Unknown device: {params.device}"}
     
-    connection = {
-        "host": device["host"],
-        "platform": device["platform"],
-        "transport": device["transport"],
-        "auth_username": USERNAME,
-        "auth_password": PASSWORD,
-        "auth_strict_key": False,
-    }
+    try:
+        action = PLATFORM_MAP[device["cli_style"]]["ospf"][params.query]
+    except KeyError:
+        return {
+            "device": params.device,
+            "error": f"OSPF query '{params.query}' not supported on platform {device['cli_style'].upper()}"
+        }
 
-    async with AsyncScrapli(**connection) as conn:
-        response = await conn.send_command(params.command)
-        return response.result
+    return await execute_command(params.device, action)
+
+# EIGRP query tool
+@mcp.tool(name="get_eigrp")
+async def get_eigrp(params: EigrpQuery) -> dict:
+    """
+    Retrieve EIGRP operational data from an IOS device.
+
+    Use this tool to troubleshoot EIGRP neighbor relationships, topology
+    information, interface participation, and configuration issues.
+
+    Supported queries:
+    - neighbors   → Verify EIGRP adjacencies and peer health
+    - topology    → Inspect feasible successors and route calculations
+    - interfaces  → Confirm interfaces participating in EIGRP
+    - config      → Review EIGRP configuration
+
+    Notes:
+    - EIGRP is supported only on IOS devices.
+    - If a query is unsupported, the tool returns an error.
+    - Cached results may be returned for short periods.
+
+    Recommended usage:
+    - Start with "neighbors" to verify adjacency.
+    - Use "topology" when routes are missing or not preferred.
+
+    Use this tool before falling back to run_show.
+    """
+    device = devices.get(params.device)
+    if not device:
+        return {"error": f"Unknown device: {params.device}"}
+
+    if device["cli_style"] != "ios":
+        return {"error": "EIGRP is supported only on IOS devices"}
+
+    try:
+        action = PLATFORM_MAP["ios"]["eigrp"][params.query]
+    except KeyError:
+        return {"error": f"Unsupported EIGRP query: {params.query}"}
+
+    return await execute_command(params.device, action)
+
+# BGP query tool
+@mcp.tool(name="get_bgp")
+async def get_bgp(params: BgpQuery) -> dict:
+    """
+    Retrieve BGP operational data from a network device.
+
+    Use this tool to investigate BGP session state, route exchange,
+    and configuration during routing issues.
+
+    Supported queries:
+    - summary  → Check neighbor state, uptime, and prefixes exchanged
+    - detail   → Inspect detailed BGP table and path attributes
+    - config   → Review BGP configuration
+
+    Notes:
+    - Supported queries vary by platform.
+    - Cached results may be returned briefly for efficiency.
+
+    Recommended usage:
+    - Start with "summary" to verify session health.
+    - Use "detail" when routes are missing or path selection is unexpected.
+
+    Use this tool before falling back to run_show.
+    """
+    device = devices.get(params.device)
+    if not device:
+        return {"error": f"Unknown device: {params.device}"}
+
+    try:
+        action = PLATFORM_MAP[device["cli_style"]]["bgp"][params.query]
+    except KeyError:
+        return {
+            "device": params.device,
+            "error": f"BGP query '{params.query}' not supported on platform {device['cli_style'].upper()}"
+        }
+
+    return await execute_command(params.device, action)
+
+# Routing table query tool
+@mcp.tool(name="get_routing")
+async def get_routing(params: RoutingQuery) -> dict:
+    """
+    Retrieve routing table information from a device.
+
+    - If prefix is provided → targeted route lookup.
+    - If prefix is omitted → full routing table.
+
+    Use this tool to verify route presence, next-hop selection,
+    and routing protocol contributions.
+
+    Use this tool before falling back to run_show.
+    """
+    device = devices.get(params.device)
+    if not device:
+        return {"error": f"Unknown device: {params.device}"}
+
+    try:
+        base_cmd = PLATFORM_MAP[device["cli_style"]]["routing_table"]["ip_route"]
+    except KeyError:
+        return {"error": f"Routing not supported on {device['cli_style'].upper()}"}
+
+    action = base_cmd if not params.prefix else f"{base_cmd} {params.prefix}"
+
+    return await execute_command(params.device, action)
+
+# Routing policies query tool
+@mcp.tool(name="get_routing_policies")
+async def get_routing_policies(params: RoutingPolicyQuery) -> dict:
+    """
+    Retrieve routing policy configuration from a device.
+
+    Use this tool to inspect route maps, prefix lists, access lists,
+    and policy-based routing that may influence routing decisions.
+
+    Supported queries:
+    - redistribution         → View routing protocol redistribution
+    - route_maps             → View route-map definitions
+    - prefix_lists           → Inspect prefix filtering rules
+    - policy_based_routing   → Verify PBR configuration
+    - access_lists           → Review ACLs affecting routing or filtering
+
+    Notes:
+    - Supported queries vary by platform.
+    - Results may be cached briefly.
+
+    Recommended usage:
+    - Use when routes are filtered, modified, or unexpectedly redirected.
+
+    Use this tool before falling back to run_show.
+    """
+    device = devices.get(params.device)
+    if not device:
+        return {"error": f"Unknown device: {params.device}"}
+
+    try:
+        action = PLATFORM_MAP[device["cli_style"]]["routing_policies"][params.query]
+    except KeyError:
+        return {
+            "device": params.device,
+            "error": f"Routing policy query '{params.query}' not supported on {device['cli_style'].upper()}"
+        }
+
+    return await execute_command(params.device, action)
+
+# Interfaces query tool
+@mcp.tool(name="get_interfaces")
+async def get_interfaces(params: InterfacesQuery) -> dict:
+    """
+    Retrieve interface status and IP information from a device.
+
+    Use this tool to verify interface state, IP assignments, and operational
+    status during connectivity and routing investigations.
+
+    Notes:
+    - Command syntax is vendor-specific and resolved via COMMAND_MAP.
+    - Returns a summary view of interfaces.
+    - Results may be cached briefly.
+
+    Recommended usage:
+    - Use when troubleshooting down links or missing adjacencies.
+    - Use to confirm IP addressing and interface operational state.
+
+    Use this tool before falling back to run_show.
+    """
+    device = devices.get(params.device)
+    if not device:
+        return {"error": f"Unknown device: {params.device}"}
+
+    try:
+        action = PLATFORM_MAP[device["cli_style"]]["interfaces"]["interface_status"]
+    except KeyError:
+        return {
+            "device": params.device,
+            "error": f"Interface status not supported on {device['cli_style'].upper()}"
+        }
+
+    return await execute_command(params.device, action)
+
+# Ping tool
+@mcp.tool(name="ping")
+async def ping(params: PingInput) -> dict:
+    """
+    Test reachability from a device to a destination IP.
+
+    Use this tool to verify connectivity, validate routing decisions,
+    and detect packet loss or reachability failures.
+
+    Notes:
+    - Command syntax is vendor-specific and resolved via COMMAND_MAP.
+    - Source parameter is optional and may not be supported on all platforms.
+    - Results are cached briefly.
+
+    Recommended usage:
+    - Use after verifying routing to confirm data-plane reachability.
+    """
+    device = devices.get(params.device)
+    if not device:
+        return {"error": f"Unknown device: {params.device}"}
+
+    cli_style = device["cli_style"]
+
+    base = PLATFORM_MAP[cli_style]["tools"]["ping"]
+
+    if isinstance(base, dict):
+        action = base.copy()
+        action["body"] = {"address": params.destination}
+    else:
+        action = f"{base} {params.destination}"
+
+    # Optional source handling (IOS/EOS style)
+    if params.source and cli_style in ["ios", "eos"]:
+        action += f" source {params.source}"
+
+    return await execute_command(params.device, action)
+
+# Traceroute tool
+@mcp.tool(name="traceroute")
+async def traceroute(params: TracerouteInput) -> dict:
+    """
+    Trace the path from a device to a destination IP.
+
+    Use this tool to identify routing paths, loops, asymmetric routing,
+    or where traffic is being dropped.
+
+    Notes:
+    - Command syntax is vendor-specific and resolved via COMMAND_MAP.
+    - Output format varies by platform.
+    - Results are cached briefly.
+
+    Recommended usage:
+    - Use when ping succeeds but path is unexpected.
+    - Use to locate where packets are dropped.
+    - Use only when necessary.
+    """
+    device = devices.get(params.device)
+    if not device:
+        return {"error": f"Unknown device: {params.device}"}
+
+    cli_style = device["cli_style"]
+
+    base = PLATFORM_MAP[cli_style]["tools"]["traceroute"]
+
+    if isinstance(base, dict):
+        action = base.copy()
+        action["body"] = {"address": params.destination,**base.get("default_body", {})}
+    else:
+        action = f"{base} {params.destination}"
+
+    return await execute_command(params.device, action)
+
+# General purpose read config tool (fallback)
+@mcp.tool(name="run_show")
+async def run_show(params: ShowCommand) -> dict:
+    return await execute_command(params.device, params.command, ttl=0)
 
 # Forbidden commands
 FORBIDDEN = {"reload", "write erase", "format", "delete", "boot"}
@@ -127,16 +520,18 @@ async def push_config(params: ConfigCommand) -> dict:
     validate_commands(params.commands)
 
     tasks = []
-
+    results = {}
     for dev_name in params.devices:
         device = devices.get(dev_name)
+        if not device:
+            results[dev_name] = "Unknown device"
+            continue
+
         tasks.append(
             asyncio.create_task(
                 push_config_to_device(dev_name, device, params.commands)
             )
         )
-
-    results = {}
 
     completed = await asyncio.gather(*tasks, return_exceptions=True)
 

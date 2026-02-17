@@ -4,11 +4,6 @@ R1A:
     password: admin
     platform: arista_ceos
     hostname: 172.20.20.201
-R2A:
-    username: admin
-    password: admin
-    platform: arista_ceos
-    hostname: 172.20.20.202
 R6A:
     username: admin
     password: admin
@@ -29,6 +24,41 @@ R11C:
     password: admin
     platform: cisco_iol
     hostname: 172.20.20.211
+R12C:
+    username: admin
+    password: admin
+    platform: cisco_iol
+    hostname: 172.20.20.212
+R13C:
+    username: admin
+    password: admin
+    platform: cisco_iol
+    hostname: 172.20.20.213
+R14C:
+    username: admin
+    password: admin
+    platform: cisco_iol
+    hostname: 172.20.20.214
+R15C:
+    username: admin
+    password: admin
+    platform: cisco_iol
+    hostname: 172.20.20.215
+R16C:
+    username: admin
+    password: admin
+    platform: cisco_iol
+    hostname: 172.20.20.216
+R17C:
+    username: admin
+    password: admin
+    platform: cisco_iol
+    hostname: 172.20.20.217
+R2C:
+    username: admin
+    password: admin
+    platform: cisco_iol
+    hostname: 172.20.20.202
 R3C:
     username: admin
     password: admin
@@ -54,3 +84,18 @@ R9C:
     password: admin
     platform: cisco_iol
     hostname: 172.20.20.209
+R18M:
+    username: admin
+    password: admin
+    platform: mikrotik_ros
+    hostname: 172.20.20.218
+R19M:
+    username: admin
+    password: admin
+    platform: mikrotik_ros
+    hostname: 172.20.20.219
+R20M:
+    username: admin
+    password: admin
+    platform: mikrotik_ros
+    hostname: 172.20.20.220

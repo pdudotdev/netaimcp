@@ -13,8 +13,6 @@ all:
       hosts:
         clab-mcp-lab-R1A:
           ansible_host: 172.20.20.201
-        clab-mcp-lab-R2A:
-          ansible_host: 172.20.20.202
         clab-mcp-lab-R6A:
           ansible_host: 172.20.20.206
         clab-mcp-lab-R7A:
@@ -29,6 +27,20 @@ all:
           ansible_host: 172.20.20.210
         clab-mcp-lab-R11C:
           ansible_host: 172.20.20.211
+        clab-mcp-lab-R12C:
+          ansible_host: 172.20.20.212
+        clab-mcp-lab-R13C:
+          ansible_host: 172.20.20.213
+        clab-mcp-lab-R14C:
+          ansible_host: 172.20.20.214
+        clab-mcp-lab-R15C:
+          ansible_host: 172.20.20.215
+        clab-mcp-lab-R16C:
+          ansible_host: 172.20.20.216
+        clab-mcp-lab-R17C:
+          ansible_host: 172.20.20.217
+        clab-mcp-lab-R2C:
+          ansible_host: 172.20.20.202
         clab-mcp-lab-R3C:
           ansible_host: 172.20.20.203
         clab-mcp-lab-R4C:
@@ -39,3 +51,15 @@ all:
           ansible_host: 172.20.20.208
         clab-mcp-lab-R9C:
           ansible_host: 172.20.20.209
+    mikrotik_ros:
+      vars:
+        # ansible_connection: set ansible_connection variable if required
+        ansible_user: admin
+        ansible_password: admin
+      hosts:
+        clab-mcp-lab-R18M:
+          ansible_host: 172.20.20.218
+        clab-mcp-lab-R19M:
+          ansible_host: 172.20.20.219
+        clab-mcp-lab-R20M:
+          ansible_host: 172.20.20.220
