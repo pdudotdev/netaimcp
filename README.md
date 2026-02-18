@@ -507,7 +507,7 @@ interface Ethernet3
    ip ospf message-digest-key 1 md5 AREA0
 !
 interface Ethernet4
-   description TO-R2A
+   description TO-R2C
    no switchport
    no shutdown
    ip address 10.0.0.1/30
@@ -690,7 +690,7 @@ interface Ethernet0/3
  ip ospf network point-to-point
 !
 interface Ethernet1/0
- description TO-R2A
+ description TO-R2C
  ip address 10.0.0.10 255.255.255.252
  ip ospf authentication message-digest
  ip ospf message-digest-key 1 md5 AREA0
@@ -869,7 +869,7 @@ ip sla schedule 1 life forever start-time now
 💾 **Router R6A**:
 ```
 interface Ethernet1
-   description TO-R2A
+   description TO-R2C
    no switchport
    no shutdown
    ip address 10.1.1.13/30
@@ -913,7 +913,7 @@ no ip route 0.0.0.0/0 172.20.20.1
 💾 **Router R7A**:
 ```
 interface Ethernet1
-   description TO-R2A
+   description TO-R2C
    no switchport
    no shutdown
    ip address 10.1.1.9/30
@@ -1178,7 +1178,7 @@ interface Ethernet0/0
  ipv6 address 3FFF:172:20:20::13/64
 !
 interface Ethernet0/1
- description TO-R2A
+ description TO-R2C
  ip address 200.40.40.2 255.255.255.252
 !
 interface Ethernet0/2
@@ -1462,7 +1462,7 @@ interface Ethernet1/0
  ip address 192.168.50.1 255.255.255.252
 !
 interface Ethernet1/1
- description TO-R2A
+ description TO-R2C
  ip address 200.50.50.2 255.255.255.252
 !
 interface Ethernet1/2
@@ -1746,11 +1746,11 @@ Troubleshooting scenarios are located in the [troubleshoot.md](https://github.co
 Each **troubleshooting scenario** has the following structure:
 - [x] **Summary**:
 ```
-R1A OSPF adjacency stuck in EXCHANGE, while R2A is stuck in EXCH START state.
+R1A OSPF adjacency stuck in EXCHANGE, while R2C is stuck in EXCH START state.
 ```
 - [x] **Causing Failure**: 
 ```
-Changing the MTU on R2A to cause a mismatch with R1A, using the commands below:
+Changing the MTU on R2C to cause a mismatch with R1A, using the commands below:
 
 interface Ethernet 3
  mtu 1400
@@ -1759,9 +1759,9 @@ interface Ethernet 3
 ```
 Checking the effects of the commands above:
 
-R2A(config-if-Et3)#show interfaces Ethernet 3 | i MTU
+R2C(config-if-Et3)#show interfaces Ethernet 3 | i MTU
   IP MTU 1400 bytes, BW 1000000 kbit
-R2A(config-if-Et3)#show ip ospf neighbor 
+R2C(config-if-Et3)#show ip ospf neighbor 
 Neighbor ID     Instance VRF      Pri State                  Dead Time   Address         Interface
 3.3.3.3         1        default  1   FULL                   00:00:35    10.0.0.10       Ethernet4
 1.1.1.1         1        default  0   EXCH START             00:00:34    10.0.0.1        Ethernet3
@@ -1777,7 +1777,7 @@ Neighbor ID     Instance VRF      Pri State                  Dead Time   Address
 ```
 - [x] **User Prompt**:
 ```
-Why is the R1A-R2A OSPF adjacency stuck? Can you check and fix please?
+Why is the R1A-R2C OSPF adjacency stuck? Can you check and fix please?
 ```
 - [x] **Commands issued by Claude**:
 ```
@@ -1789,7 +1789,7 @@ no mtu 1400
 ```
 - [x] **Confirmation**:
 ```
-R2A#show ip ospf neighbor
+R2C#show ip ospf neighbor
 Neighbor ID     Instance VRF      Pri State                  Dead Time   Address         Interface
 3.3.3.3         1        default  1   FULL                   00:00:34    10.0.0.10       Ethernet4
 1.1.1.1         1        default  0   FULL                   00:00:38    10.0.0.1        Ethernet3
