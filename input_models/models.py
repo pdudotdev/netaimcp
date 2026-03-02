@@ -117,7 +117,7 @@ class ConfigCommand(BaseParamsModel):
     """Send configuration commands to one or more devices."""
     devices: list[str] = Field(..., description="Device names from inventory (e.g. ['R1','R2','R3'])")
     commands: list[str] = Field(..., description="Configuration commands to apply")
-    snapshot_before: bool = Field(False, description="If true, capture OSPF state snapshot before applying changes")
+    snapshot_before: bool = Field(False, description="If true, capture a pre-change state snapshot (profile auto-selected from commands)")
 
 # Empty placeholder - input model
 class EmptyInput(BaseParamsModel):
@@ -126,7 +126,7 @@ class EmptyInput(BaseParamsModel):
 # Snapshot - input model
 class SnapshotInput(BaseParamsModel):
     devices: list[str] = Field(..., description="Devices to snapshot (e.g. R1, R2, R3)")
-    profile: Literal["ospf", "stp"] = Field(..., description="Snapshot profile: 'ospf' or 'stp'")
+    profile: Literal["ospf", "stp", "eigrp", "bgp"] = Field(..., description="Snapshot profile: 'ospf', 'stp', 'eigrp', or 'bgp'")
 
 # Risk score - input model
 class RiskInput(BaseParamsModel):

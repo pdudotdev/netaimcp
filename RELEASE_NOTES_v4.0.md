@@ -7,7 +7,7 @@ MCP server, on-call watcher, and toolchain are now observable, secure, and corre
 enforcing all safety gates. No new protocols or vendors are added in this release — those
 are planned for v5.0 once this foundation is proven.
 
-**Test count:** 229 unit tests across 9 test files (up from 3 unit tests in v3.0).
+**Test count:** 230 unit tests across 9 test files (up from 3 unit tests in v3.0).
 
 ---
 
@@ -169,7 +169,7 @@ structured risk reasons:
 
 ### Stage 7 — Methodology & Testing
 
-**Unit test suite** (9 test files, 229 tests):
+**Unit test suite** (9 test files, 230 tests):
 
 | File | Coverage | Tests |
 |------|----------|-------|
@@ -248,7 +248,7 @@ now includes all 9 unit test files (UT-001 through UT-009) and 4 integration tes
 (IT-001 through IT-004).
 
 **Test documentation:**
-2-3 line docstrings added to all 229 unit test functions across all 9 test files,
+2-3 line docstrings added to all 230 unit test functions across all 9 test files,
 explaining what each test checks and why it matters.
 
 ---
@@ -386,7 +386,7 @@ input/output schemas) is fully backward-compatible.
 5. **Run unit tests** to confirm the installation is clean:
    ```bash
    python3 -m pytest testing/agent-testing/unit/ -v
-   # Expected: 229 passed
+   # Expected: 230 passed
    ```
 
 ---

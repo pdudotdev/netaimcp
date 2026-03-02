@@ -169,7 +169,7 @@ Contains:
 - Complete MCP tool list
 - Lessons curation process
 - Case management workflow
-- 13 common pitfalls to avoid
+- 14 common pitfalls to avoid
 
 Everything the agent needs to operate lives here.
 

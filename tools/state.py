@@ -52,6 +52,30 @@ _SNAPSHOT_PROFILES: dict[str, dict[str, list]] = {
         ],
         # RouterOS does not have STP; profile yields no commands for routeros
     },
+    "eigrp": {
+        "ios": [
+            ("running_config",  "show running-config"),
+            ("eigrp_neighbors", "show ip eigrp neighbors"),
+            ("eigrp_topology",  "show ip eigrp topology"),
+        ],
+        # EIGRP not supported on EOS or RouterOS in this lab
+    },
+    "bgp": {
+        "ios": [
+            ("running_config", "show running-config"),
+            ("bgp_summary",    "show ip bgp summary"),
+            ("bgp_table",      "show ip bgp"),
+        ],
+        "eos": [
+            ("running_config", "show running-config"),
+            ("bgp_summary",    "show ip bgp summary"),
+            ("bgp_table",      "show ip bgp"),
+        ],
+        "routeros": [
+            ("bgp_connections", {"method": "GET", "path": "/rest/routing/bgp/connection"}),
+            ("bgp_sessions",    {"method": "GET", "path": "/rest/routing/bgp/session"}),
+        ],
+    },
 }
 
 

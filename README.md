@@ -1,6 +1,6 @@
 # ✨ aiNOC
 
-[![Latest Release](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://github.com/pdudotdev/aiNOC/releases/tag/4.0.0)
+[![Latest Release](https://img.shields.io/badge/version-4.0.2-blue.svg)](https://github.com/pdudotdev/aiNOC/releases/tag/4.0.2)
 [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/aiNOC)](https://github.com/pdudotdev/aiNOCcommits/main/)
 
 ## 📖 **Table of Contents**
@@ -24,11 +24,12 @@
 aiNOC is a **network troubleshooting framework** for multi-vendor, multi-protocol, multi-area/multi-AS, OSI L2-L4 enterprise networks.
 
 **Key characteristics:**
-- [x] **Multi-vendor support**
-- [x] **Multi-protocol, L2-L4**
+- [x] **Multi-vendor support** (3 vendors)
+- [x] **Multi-protocol, L2-L4** (6 skills)
 - [x] **Multi-area/multi-AS**
-- [x] **SSH/eAPI/REST API**
+- [x] **SSH/eAPI/REST API** (16 MCP tools)
 - [x] **Jira integration**
+- [x] **32 operational guardrails**
 
 Operating modes of **aiNOC**:
 - [x] **Standalone mode (ST)**
@@ -97,9 +98,9 @@ v4.0 is a major **quality, reliability, and security** release - no new protocol
 - [x] Rollback advisory generation for all config changes
 
 **Testing:**
-- [x] 229 unit tests across 9 test files (up from 3 in v3.0)
+- [x] 230 unit tests across 9 test files (up from 3 in v3.0)
 - [x] 4 integration test files with `NO_LAB` skip guards
-- [x] 13 manual E2E scenarios (8 standalone, 2 on-call, 3 watcher)
+- [x] 12 manual E2E scenarios (7 standalone, 1 on-call, 1 maintenance window, 3 watcher)
 - [x] Pydantic `Literal` validation on all query parameters
 
 ## ⚒️ Tech Stack
@@ -129,43 +130,13 @@ v4.0 is a major **quality, reliability, and security** release - no new protocol
 | MikroTik | RouterOS |
 
 ## 🎓 Troubleshooting Scope
-- [x] **OSPF multi-area**:
-  - Basic protocol parameters:
-    - Reference bandwidth
-    - Point-to-point links
-    - Passive interfaces
-    - MD5 authentication
-    - External type 1 routes
-    - Default routes injected
-  - Route summarization (ABR)
-  - Route redistribution EIGRP-OSPF
-  - Route filtering with prefix lists
-  - Route filtering with distribute lists
-  - Area types: normal, stubby, totally NSSA
 
-- [x] **EIGRP**:
-  - Basic protocol parameters:
-    - Passive interfaces
-    - MD5 authentication
-    - EIGRP stub summary
-  - Route redistribution OSPF-EIGRP
-  - Default metric via route maps
-
-- [x] **BGP**:
-  - eBGP, dual-ISP mode
-  - ISP default-originate
-  - Prefix lists and route maps
-  - Route reflectors and clients
-
-- [x] **Services**:
-  - Policy-Based Routing
-  - IP SLA icmp-echo
-  - MikroTik Netwatch
-  - Arista Connectivity
-  - NAT/PAT on ASBRs
-  - Management APIs
-  - Static routing
-  - Syslog, NTP
+| Category | Capabilities |
+|----------|-------------|
+| **OSPF** (multi-area) | Reference bandwidth · Point-to-point links · Passive interfaces · MD5 authentication · External type 1 routes · Default route injection · ABR route summarization · EIGRP ↔ OSPF redistribution · Prefix list filtering · Distribute list filtering · Area types: normal, stubby, totally NSSA |
+| **EIGRP** | Passive interfaces · MD5 authentication · Stub summary · OSPF ↔ EIGRP redistribution · Default metric via route maps |
+| **BGP** | eBGP dual-ISP · Default-originate · Prefix lists and route maps · Route reflectors and clients |
+| **Services** | Policy-Based Routing · IP SLA · MikroTik Netwatch · Arista Connectivity Monitor · NAT/PAT on ASBRs · Management APIs · Static routing · Syslog · NTP |
 
 ## 🛠️ Environment Setup
 **Installation**:

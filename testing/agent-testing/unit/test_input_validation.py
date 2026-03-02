@@ -174,18 +174,17 @@ def test_show_command_routeros_bad_path_rejected(bad_path):
 
 # ── SnapshotInput profile validation ─────────────────────────────────────────
 
-@pytest.mark.parametrize("profile", ["ospf", "stp"])
+@pytest.mark.parametrize("profile", ["ospf", "stp", "eigrp", "bgp"])
 def test_snapshot_profile_valid(profile):
-    """Valid snapshot profiles ('ospf' and 'stp') must be accepted by SnapshotInput."""
+    """Valid snapshot profiles must be accepted by SnapshotInput."""
     m = SnapshotInput(devices=["R1A"], profile=profile)
     assert m.profile == profile
 
 
-@pytest.mark.parametrize("profile", ["bgp", "eigrp", "all", "", "OSPF"])
+@pytest.mark.parametrize("profile", ["all", "", "OSPF", "isis"])
 def test_snapshot_profile_invalid(profile):
     """Invalid snapshot profiles must raise ValidationError at model construction.
-    Only 'ospf' and 'stp' are defined in _SNAPSHOT_PROFILES; other values produce empty results
-    without error — the Literal type closes this gap.
+    Only 'ospf', 'stp', 'eigrp', and 'bgp' are defined; other values are rejected.
     """
     with pytest.raises(ValidationError):
         SnapshotInput(devices=["R1A"], profile=profile)

@@ -164,12 +164,19 @@ async def push_config(params: ConfigCommand) -> dict:
 
     risk = await assess_risk(RiskInput(devices=params.devices, commands=params.commands))
 
-    # Pre-change snapshot (optional, OSPF profile)
+    # Pre-change snapshot (optional, profile auto-selected from commands)
     pre_snapshot_id = None
     if params.snapshot_before:
-        snap = await snapshot_state(SnapshotInput(devices=params.devices, profile="ospf"))
+        cmd_text = " ".join(params.commands).lower()
+        if "eigrp" in cmd_text:
+            snap_profile = "eigrp"
+        elif "bgp" in cmd_text:
+            snap_profile = "bgp"
+        else:
+            snap_profile = "ospf"
+        snap = await snapshot_state(SnapshotInput(devices=params.devices, profile=snap_profile))
         pre_snapshot_id = snap.get("snapshot_id")
-        log.info("pre-change snapshot taken: id=%s", pre_snapshot_id)
+        log.info("pre-change snapshot taken: id=%s profile=%s", pre_snapshot_id, snap_profile)
 
     start = time.perf_counter()
     validate_commands(params.commands)

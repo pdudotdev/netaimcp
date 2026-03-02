@@ -278,11 +278,15 @@ Prevents:
 
 `snapshot_state` accepts a `profile` parameter that selects which commands to run per device platform.
 
-**Valid profiles:** `ospf` | `stp`
+**Valid profiles:** `ospf` | `stp` | `eigrp` | `bgp`
 
 | Profile | IOS commands captured | EOS commands captured | RouterOS commands captured |
 |---------|----------------------|----------------------|--------------------------|
 | `ospf` | running-config, OSPF config, OSPF neighbors | running-config, OSPF config, OSPF neighbors | IP addresses, OSPF instances, OSPF neighbors |
 | `stp` | running-config, STP general, STP per-VLAN detail | running-config, STP general | *(not supported — no STP in RouterOS)* |
+| `eigrp` | running-config, EIGRP neighbors, EIGRP topology | *(not supported — no EIGRP on EOS)* | *(not supported — no EIGRP on RouterOS)* |
+| `bgp` | running-config, BGP summary, BGP table | running-config, BGP summary, BGP table | BGP connections, BGP sessions |
+
+`push_config` with `snapshot_before=True` auto-selects the profile from the commands being pushed: `eigrp` if any command contains "eigrp", `bgp` if any contains "bgp", otherwise `ospf`.
 
 Snapshots are written to the `snapshots/` directory (gitignored). Invalid profiles are rejected at the MCP boundary (`profile` is a validated enum).
