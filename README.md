@@ -52,7 +52,8 @@ Operating modes of **aiNOC**:
 ![arch](metadata/topology/ARCHv3.png)
 
 ## 🍀 Here's a Demo
-- [x] ▶ See a [**DEMO HERE**](https://www.youtube.com/watch?v=oxSa25R6EgI)
+- [x] ▶ See a [**DEMO HERE**](https://www.youtube.com/watch?v=oxSa25R6EgI) for v3.0.
+  - *Next video demo coming with v5.0*
 
 ## ♻️ Repository Lifecycle
 This repository is **NOT** static. **New features** are being added periodically (vendors, protocols, integrations, optimizations).
@@ -176,6 +177,8 @@ source mcp/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
+
+⚠️ **NOTE:** The included **CLAUDE.md** and **skills** are templates. You can customize them with your own troubleshooting methodology, tool descriptions, and operational guidelines.
 
 ## 🔄 Test Network Topology
 **Network diagram**:
