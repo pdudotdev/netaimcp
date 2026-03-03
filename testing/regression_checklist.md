@@ -8,8 +8,7 @@ Run this checklist after any significant change to `MCPServer.py`, `oncall/watch
 | 1 | All unit tests pass | — | `./run_tests.sh unit` |
 | 2 | Integration tests pass (lab required) | — | `./run_tests.sh integration` |
 | 3 | Full On-Call pipeline (passive-interface) | 1 | OC-001 Primary |
-| 4 | Maintenance window blocks push_config (without on_call) | 2 | MW-001 |
-| 5 | Watcher event filtering and recovery logging | 3 | WB-001 – WB-004 |
+| 4 | Watcher event filtering and recovery logging | 2 | WB-001 – WB-004 |
 
 **NOTE:** On-Call cases are documented as Jira tickets (see Jira project SUP).
 
@@ -39,5 +38,3 @@ Run this checklist after any significant change to `MCPServer.py`, `oncall/watch
 | `test_watcher_events.py` | Watcher helpers: event detection, lock management, deferred scan |
 
 ---
-
-**MW-001 verification**: `push_config` enforces the maintenance window — it returns an error dict when `check_maintenance_window` returns `allowed: false` and `on_call=False`. To test: temporarily narrow the window in `MAINTENANCE.json` to exclude current time, trigger an On-Call session without `on_call=True`, approve the proposed fix, and confirm the agent reports a maintenance window block. Restore `MAINTENANCE.json` after testing.

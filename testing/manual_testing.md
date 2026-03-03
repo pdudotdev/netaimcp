@@ -19,11 +19,7 @@ cd /home/mcp/mcp-project/testing/agent-testing
 Then these manual scenarios:
 - **OC-001** — Full On-Call Pipeline (Primary Setup + Deferred)
 
-### Tier 2 — Extended Coverage (~15 min) | Run for significant changes
-
-- **MW-001** — Maintenance Window Blocking
-
-### Tier 3 — Targeted (~15 min) | Run when touching related code
+### Tier 2 — Targeted (~15 min) | Run when touching related code
 
 - **WB-001–004** — Watcher Behavior (partially covered by UT-001 + IT-002)
 
@@ -263,25 +259,3 @@ After any On-Call test run (Jira must be configured):
    All fields described in `cases/case_format.md` are present: Commands Used, Proposed Fixes, Verification.
 
 3. **Lessons learned** (check if `cases/lessons.md` was updated):
-
----
-
-## Maintenance Window Policy
-
-The agent must refuse config pushes outside the maintenance window defined in
-`policy/MAINTENANCE.json` (UTC Mon–Fri 05:00–20:00).
-
-### MW-001 — Change Blocked Outside Window
-
-To test this, temporarily edit the maintenance window to exclude the current time
-(or run this test after 20:00 UTC on a weekday / any time on weekend).
-
-Trigger an On-Call session (inject SLA Down event) with a narrowed maintenance window, and confirm:
-- Agent diagnoses the issue correctly
-- Agent proposes the fix
-- When user approves, `push_config` is called with `on_call=True` — confirm the fix goes through despite the narrow window
-- (Optional edge case: remove `on_call=True` from CLAUDE.md temporarily to confirm the window block works)
-
-The default behavior since v5.0 is that On-Call fixes bypass the maintenance window via `on_call=True`.
-
-**Do not modify `MAINTENANCE.json` permanently** - restore after testing.

@@ -76,7 +76,7 @@ Create `settings.json` under `.claude/`:
 
 ## 🍀 Here's a Quick Demo
 - [x] ▶ See a [**DEMO HERE**](https://www.youtube.com/watch?v=oxSa25R6EgI) for v3.0.
-  - *Next video demo coming with v5.0*
+  - *Next video demo coming with the next major release*
 
 ## ♻️ Repository Lifecycle
 **New features** are being added periodically (vendors, protocols, integrations, etc.).
@@ -185,7 +185,7 @@ sudo systemctl status vector
 - [x] Default credentials: see **.env** file at [**.env.example**](.env.example)
 
 ## 📞 aiNOC in On-Call Mode
-**On-Call Mode** was introduced in v3.0 and enhanced in v4.0.
+**On-Call Mode** is the primary operating mode of aiNOC (introduced in v3.0, enhanced in v4.0 and v4.5).
 
 ### What it does, in a nutshell?
 - [x] User configures connectivity paths
