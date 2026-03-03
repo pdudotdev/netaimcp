@@ -66,10 +66,9 @@ async def execute_command(device_name: str, cmd_or_action, ttl: int = CMD_TTL) -
         "cache_hit": False,
     }
 
+    result["raw"] = raw_output
     if parsed_output:
         result["parsed"] = parsed_output
-    else:
-        result["raw"] = raw_output
 
     if ttl > 0:
         cache_set(device_name, str(cmd_or_action), result)

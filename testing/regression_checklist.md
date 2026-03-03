@@ -17,7 +17,7 @@ Run this checklist after any significant change to `MCPServer.py`, `oncall/watch
 | 10 | OSPF area type change (multi-device) | 2 | ST-007 |
 | 11 | Maintenance window blocks push_config | 2 | MW-001 |
 | 12 | PBR investigation (diagnostic only) | 3 | ST-004 |
-| 13 | Watcher event filtering and recovery logging | 3 | WB-001 – WB-003 |
+| 13 | Watcher event filtering and recovery logging | 3 | WB-001 – WB-004 |
 
 **NOTE:** On-Call cases are documented as Jira tickets (see Jira project SUP). Standalone mode has no Jira integration.
 

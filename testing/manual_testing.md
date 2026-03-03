@@ -515,7 +515,7 @@ tail -f /home/mcp/mcp-project/oncall_watcher.log
 
 **Tests**: Full watcher pipeline, agent investigation, fix verification, deferred queue, Jira documentation
 
-Run the **Primary Setup** for Tier 1. Use the **Alternate Setup** when specifically testing the deferred queue with an interface-down root cause.
+Run the **Primary Setup** for Tier 1 regression and full pipeline validation.
 
 ---
 
@@ -614,57 +614,7 @@ router ospf 1
 
 ---
 
-#### Alternate Setup — Interface Shutdown Break (R3C)
-
-**SLA Paths**: `R4C_TO_R10C`, `R5C_TO_R12C` | **Break device**: R3C
-
-Use this setup to test the deferred queue with an interface-down root cause, or to vary the break mechanism from the Primary Setup.
-
-##### Setup (break)
-
-SSH to R3C and shut both OSPF interfaces:
-```
-interface Ethernet0/2
-  shutdown
-interface Ethernet0/1
-  shutdown
-```
-
-This breaks two SLA paths simultaneously:
-- `R4C_TO_R10C` (R4C → R3C → R1A → R10C): R4C loses next-hop via R3C
-- `R5C_TO_R12C` (R5C → R3C → R12C): R5C loses next-hop to ISP A
-
-##### Expected agent behavior (primary session)
-
-1. Reads `skills/oncall/SKILL.md`
-2. Looks up `R4C_TO_R10C` → scope: R4C, R3C, R1A, R10C
-3. Traceroutes from R4C → stops at R4C (first hop unreachable) or R3C
-4. Reads `skills/ospf/SKILL.md`
-5. Calls `get_ospf(R3C, "neighbors")` → no neighbors
-6. Calls `get_interfaces(R3C)` → Ethernet0/1 and Ethernet0/2 admin-down
-7. Root cause: interfaces shut → proposes `no shutdown` on both
-8. Asks user approval, applies fix, verifies route returns on R4C
-
-##### Verify fix
-
-From R4C:
-```
-show ip route 10.10.10.10
-```
-Expected: Route via R3C returns.
-
-##### Teardown (if agent did not fix)
-
-```
-interface Ethernet0/2
-  no shutdown
-interface Ethernet0/1
-  no shutdown
-```
-
----
-
-#### Deferred Queue Handling (both setups)
+#### Deferred Queue Handling
 
 **Purpose**: Validate that concurrent SLA events during an active session are deferred and surfaced in a follow-up review session.
 
@@ -724,6 +674,28 @@ Verify: no new `Agent invoked` entry appears in the log after the Up event.
 echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.218","msg":"netwatch,info event down [ type: simple, host: 10.0.0.1 ]"}' >> /var/log/network.json
 ```
 Expected: Watcher **does** invoke agent (MikroTik format matched).
+
+### WB-004 — Daemon Mode (tmux Session)
+
+Start the watcher in daemon mode:
+```bash
+python3 oncall/watcher.py -d
+```
+
+Expected at startup: `Watcher started in DAEMON mode` in `oncall_watcher.log`.
+
+Inject an SLA Down event:
+```bash
+echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.204","msg":"%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down"}' >> /var/log/network.json
+```
+
+Verify:
+1. A tmux session named `oncall-*` is created: `tmux list-sessions | grep oncall`
+2. `oncall_watcher.log` shows: `Agent invoked in tmux session: oncall-<timestamp>`
+3. Attach to the session: `tmux attach -t oncall-<timestamp>`
+4. Agent session is running with the SLA failure prompt
+5. Type `/exit` in the agent session — tmux session closes
+6. Watcher resumes monitoring: `Agent session ended.` in log and `oncall_watcher.log` shows no dangling lock
 
 ---
 
