@@ -1,6 +1,6 @@
 # ✨ aiNOC
 
-[![Latest Release](https://img.shields.io/badge/version-4.0.2-blue.svg)](https://github.com/pdudotdev/aiNOC/releases/tag/4.0.2)
+[![Latest Release](https://img.shields.io/badge/version-4.0.4-blue.svg)](https://github.com/pdudotdev/aiNOC/releases/tag/4.0.4)
 [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/aiNOC)](https://github.com/pdudotdev/aiNOCcommits/main/)
 
 ## 📖 **Table of Contents**
@@ -15,39 +15,48 @@
   - [🛠️ Installation](#%EF%B8%8F-installation)
   - [🔄 Test Network Topology](#-test-network-topology)
   - [📞 On-Call Mode](#-on-call-mode)
-  - [🌱 AI Automation 101](#-ai-automation-101)
   - [⬆️ Planned Upgrades](#%EF%B8%8F-planned-upgrades)
+  - [🌱 AI Automation 101](#-ai-automation-101)
   - [📄 Disclaimer](#-disclaimer)
   - [📜 License](#-license)
+  - [📧 Professional Collaborations](#-professional-collaborations)
 
 ## 🔭 Overview
-aiNOC is a **network troubleshooting framework** for multi-vendor, multi-protocol, multi-area/multi-AS, OSI L2-L4 enterprise networks.
+aiNOC is an AI-based **network troubleshooting framework** for multi-vendor, multi-protocol, multi-area/multi-AS, OSI L2-L4 enterprise networks.
 
 **Key characteristics:**
 - [x] **Multi-vendor support**
 - [x] **Multi-protocol, L2-L4**
 - [x] **Multi-area/multi-AS**
 - [x] **SSH/eAPI/REST API**
-- [x] **Jira integration**
 - [x] **16 MCP tools, 6 skills**
 - [x] **32 operational guardrails**
+- [x] **Jira integration**
 
 Operating modes of **aiNOC**:
 - [x] **Standalone mode (ST)**
   - User specifies network issue and symptoms at the prompt
 - [x] **On-Call mode (OC)**
-  - Agent is invoked by SLA path failure, see [**On-Call Mode**](#-on-call-mode)
+  - Agent is invoked by SLA path failures, see [**On-Call Mode**](#-on-call-mode)
 
-**Important files**:
+**Important project files**:
 - [x] See [**file roles**](metadata/about/file_roles.md)
 
-**Agent guardrails**:
+**Agent guardrails list**:
 - [x] See [**guardrails**](metadata/about/guardrails.md)
 
 **Supported models**:
 - [x] Haiku 4.5 (best for costs)
-- [x] Sonnet 4.6
-- [x] Opus 4.6
+- [x] Sonnet 4.6 (default)
+- [x] Opus 4.6 (best reasoning)
+
+**Set your default model**:
+Create `settings.json` under `.claude/`:
+```
+{
+  "model": "sonnet"
+}
+```
 
 **High-level architecture:**
 
@@ -58,7 +67,7 @@ Operating modes of **aiNOC**:
   - *Next video demo coming with v5.0*
 
 ## ♻️ Repository Lifecycle
-**New features** are being added periodically (vendors, protocols, integrations, optimizations).
+**New features** are being added periodically (vendors, protocols, integrations, etc.).
 
 **Stay up-to-date**:
 - [x] **Watch** and **Star** this repository
@@ -151,16 +160,17 @@ pip install -r requirements.txt
 ```
 
 **Step 2**:
+
 The included **CLAUDE.md** and **skills** are templates. **Customize them** with your own troubleshooting methodology, tool descriptions, and operational guidelines.
 
 **Step 3**:
 - Configure IP SLA, Connectivity Monitor, Netwatch etc. paths in your network
-- Make sure they are being tracked and logged remotely to Vector (Syslog)
+- Make sure they are being tracked and logged remotely to **Vector** (Syslog)
 - Configure the transforms inside `/etc/vector/vector.yaml` - [**example**](metadata/about/vector.yaml)
-- aiNOC monitors Vector's `/var/log/network.json` file for specific logs
+- aiNOC monitors Vector's `/var/log/network.json` file for specific logs and parses them
 
 **Step 4**:
-Run **aiNOC** in **On-Call Mode**, either in **default** or as a **daemon**:
+Run **aiNOC** in **On-Call Mode**, in the terminal or as a **daemon**:
 ```
 python3 oncall_watcher.py      # default: interactive terminal
 python3 oncall_watcher.py -d   # daemon mode, across reboots
@@ -213,7 +223,7 @@ sudo systemctl status vector
 - [x] `sla_paths/paths.json` outlines paths for the agent
 - [x] `oncall/watcher.py` monitors Vector for new logs
 - [x] Once a new log arrives, the agent is invoked
-- [x] Watcher creates a new Jira ticket / case
+- [x] Watcher creates a new Jira ticket
 - [x] Agent gets log details pre-filled in prompt
 - [x] Agent starts troubleshooting procedures
 - [x] Identifies root cause and potential fix
@@ -221,9 +231,6 @@ sudo systemctl status vector
 - [x] Logs results to Jira ticket and marks completion
 - [x] Actions logged to `oncall/oncall_watcher.log`
 - [x] Skipped events are deferred for later analysis
-
-## 🌱 AI Automation 101
-If you're completely new to Network Automation using AI & MCP, then you may want to [**start here**](https://www.udemy.com/course/mcp-server/?referralCode=D62613A8194D2D915B55) before moving on.
 
 ## ⬆️ Planned Upgrades
 Expected in version v5.0:
@@ -233,8 +240,18 @@ Expected in version v5.0:
 - [ ] Performance-based SLAs
 - [ ] NetBox integration
 
+## 🌱 AI Automation 101
+If you're completely new to Network Automation using AI & MCP, then you may want to [**start here**](https://www.udemy.com/course/mcp-server/?referralCode=D62613A8194D2D915B55) before moving on.
+
 ## 📄 Disclaimer
 You are responsible for defining your own troubleshooting methodologies and context files, as well as building your own test environment and meeting the necessary conditions (e.g., RAM/vCPU, router OS images, Claude subscription/API key, etc.).
 
 ## 📜 License
 Licensed under the [**GNU GENERAL PUBLIC LICENSE Version 3**](https://github.com/pdudotdev/aiNOC/blob/main/LICENSE).
+
+## 📧 Professional Collaborations
+If you're interested in customizing and adapting **aiNOC** for your own network, or looking to collaborate long-term, feel free to reach out.
+- **Email Address**:  
+  - Please direct your inquiries to **hello@ainoc.dev**.
+- **LinkedIn**:
+  - Send me a DM on [**LinkedIn**](https://www.linkedin.com/in/tmihaicatalin/) and let's talk. 
