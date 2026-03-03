@@ -12,7 +12,7 @@
   - [⚒️ Tech Stack](#%EF%B8%8F-tech-stack)
   - [📋 Supported Vendors](#-supported-vendors)
   - [🎓 Troubleshooting Scope](#-troubleshooting-scope)
-  - [🛠️ Environment Setup](#%EF%B8%8F-environment-setup)
+  - [🛠️ Installation](#%EF%B8%8F-installation)
   - [🔄 Test Network Topology](#-test-network-topology)
   - [📞 On-Call Mode](#-on-call-mode)
   - [🌱 AI Automation 101](#-ai-automation-101)
@@ -151,23 +151,23 @@ pip install -r requirements.txt
 ```
 
 **Step 2**:
-The included **CLAUDE.md** and **skills** are templates. You can **customize them** with your own troubleshooting methodology, tool descriptions, and operational guidelines.
+The included **CLAUDE.md** and **skills** are templates. **Customize them** with your own troubleshooting methodology, tool descriptions, and operational guidelines.
 
 **Step 3**:
 - Configure IP SLA, Connectivity Monitor, Netwatch etc. paths in your network
 - Make sure they are being tracked and logged remotely to Vector (Syslog)
 - Configure the transforms inside `/etc/vector/vector.yaml` - [**example**](metadata/about/vector.yaml)
-- aiNOC monitors Vector's /var/log/network.json file for specific logs
+- aiNOC monitors Vector's `/var/log/network.json` file for specific logs
 
 **Step 4**:
-Run **aiNOC** in **On-Call Mode**, either in **default** or **daemon** mode:
+Run **aiNOC** in **On-Call Mode**, either in **default** or as a **daemon**:
 ```
-python3 oncall_watcher.py          # default: interactive terminal
-python3 oncall_watcher.py -d       # daemon mode, across reboots
+python3 oncall_watcher.py      # default: interactive terminal
+python3 oncall_watcher.py -d   # daemon mode, across reboots
 ```
 
 **Step 5**:
-Check **Watcher** and **Vector** are running:
+Check if **Watcher** and **Vector** are running:
 ```
 sudo systemctl status oncall_watcher.service
 sudo systemctl status vector
@@ -203,23 +203,23 @@ sudo systemctl status vector
 ### What it does, in a nutshell?
 - [x] User configures connectivity paths
   - **Cisco**: IP SLA & tracking
-  - **Arista**: Monitor Connectivity
+  - **Arista**: Connectivity Monitor
   - **MikroTik**: NetWatch
 - [x] User configures **Syslog** and **NTP**
 - [x] User configures **Syslog** server (Vector)
-- [x] User configures **Vector** with correct parser
+- [x] User configures **Vector** with correct transforms
 - [x] Connectivity path failures are logged to **Syslog**
 - [x] **Vector** listens for and parses multi-vendor logs
 - [x] `sla_paths/paths.json` outlines paths for the agent
 - [x] `oncall/watcher.py` monitors Vector for new logs
 - [x] Once a new log arrives, the agent is invoked
+- [x] Watcher creates a new Jira ticket / case
 - [x] Agent gets log details pre-filled in prompt
 - [x] Agent starts troubleshooting procedures
-- [x] Watcher creates a new Jira ticket / case
 - [x] Identifies root cause and potential fix
 - [x] Upon user approval, applies and verifies the fix
 - [x] Logs results to Jira ticket and marks completion
-- [x] Agent invocations are logged to `oncall_watcher.log`
+- [x] Actions logged to `oncall/oncall_watcher.log`
 - [x] Skipped events are deferred for later analysis
 
 ## 🌱 AI Automation 101
