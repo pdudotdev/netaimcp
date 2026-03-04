@@ -10,7 +10,7 @@
 ![Transports](https://img.shields.io/badge/Transports-555555)
 ![SSH](https://img.shields.io/badge/SSH-2E8B57)
 ![eAPI](https://img.shields.io/badge/eAPI-D4841A)
-![REST API](https://img.shields.io/badge/REST_API-7B52AB)
+![REST](https://img.shields.io/badge/REST-7B52AB)
 
 ## 📖 **Table of Contents**
 - 📜 **aiNOC**

@@ -15,7 +15,7 @@ All notable changes to this project are documented in this file.
 - Risk assessment (`assess_risk`) now surfaced before user approval: agent calls it in On-Call step 4 and includes risk level in the findings table
 
 ### 🧪 Testing
-- 229 unit tests: removed 6 snapshot input validation tests, added 3 on_call model/bypass tests
+- 281 tests: removed 6 snapshot input validation tests, added 3 on_call model/bypass tests
 - Manual E2E: retired ST-00x Standalone test suite; OC-001, MW-001, and WB-001–004 remain
 - 15 MCP tools registered (snapshot_state removed)
 
