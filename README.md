@@ -20,11 +20,11 @@
   - [⭐ What's New in v4.0](#-whats-new-in-v40)
   - [⚒️ Current Tech Stack](#️-current-tech-stack)
   - [📋 Supported Vendors](#-supported-vendors)
-  - [🛻 Supported Transports](#️-supported-transports)
+  - [🚛 Supported Transports](#️-supported-transports)
   - [🎓 Troubleshooting Scope](#-troubleshooting-scope)
   - [🛠️ Installation & Usage](#️-installation--usage)
   - [🔄 Test Network Topology](#-test-network-topology)
-  - [📞 aiNOC in On-Call Mode](#-ainoc-in-on-call-mode)
+  - [📞 aiNOC On-Call](#-ainoc-on-call)
   - [⬆️ Planned Upgrades](#️-planned-upgrades)
   - [🌱 AI Automation 101](#-ai-automation-101)
   - [📄 Disclaimer](#-disclaimer)
@@ -44,7 +44,7 @@ aiNOC is an AI-based **network troubleshooting framework** for multi-vendor, mul
 - [x] **Jira integration**
 
 ▫️ **Operating mode of aiNOC**:
-- [x] See [**aiNOC On-Call**](#-ainoc-in-on-call-mode)
+- [x] See [**aiNOC On-Call**](#-ainoc-on-call)
 
 ▫️ **Important project files**:
 - [x] See [**file roles**](metadata/about/file_roles.md)
@@ -90,7 +90,7 @@ Create `settings.json` under `.claude/`:
 
 ## ⚒️ Current Tech Stack
 
-| Tool | ✓ |
+| Tool |   |
 |------|---|
 | Claude Code | ✓ |
 | MCP (FastMCP) | ✓ |
@@ -114,7 +114,7 @@ Create `settings.json` under `.claude/`:
 | Cisco | IOS/IOS-XE (IOL) |
 | MikroTik | RouterOS |
 
-## 🛻 Supported Transports
+## 🚛 Supported Transports
 
 | Vendor | Transport |
 |--------|-----------|
@@ -143,8 +143,7 @@ pip install -r requirements.txt
 ```
 
 ▫️ **Step 2**:
-
-The included `CLAUDE.md` and `/skills/*` are templates. **Customize them** with your own troubleshooting methodology, tool descriptions, and operational guidelines.
+The included `CLAUDE.md` and `skills/*` are templates. **Customize them** with your own troubleshooting methodology, tool descriptions, and operational guidelines.
 
 ▫️ **Step 3**:
 - Configure IP SLA, Connectivity Monitor, Netwatch etc. paths in your network
@@ -192,7 +191,7 @@ sudo systemctl status oncall_watcher.service
 - [x] Default credentials: see **.env** file at [**.env.example**](.env.example)
 
 ## 📞 aiNOC On-Call
-**On-Call Mode** is the new operating mode of aiNOC (introduced in v3.0, enhanced in v4.0 and v4.5).
+**On-Call Mode** is the new operating mode of aiNOC - introduced in v3.0, enhanced in v4.0.
 
 ### What it does, in a nutshell?
 - [x] User configures connectivity paths
@@ -233,7 +232,7 @@ You are responsible for defining your own troubleshooting methodologies and cont
 ## 📜 License
 Licensed under the [**GNU GENERAL PUBLIC LICENSE Version 3**](https://github.com/pdudotdev/aiNOC/blob/main/LICENSE).
 
-## 📧 Professional Collaborations
+## 📧 Collaborations
 Interested in customizing and adapting **aiNOC** to your own network, or looking to collaborate long-term?
 - **Email**:  
   - Please direct your inquiries to **hello@ainoc.dev**.
