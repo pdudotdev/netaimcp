@@ -18,11 +18,12 @@ cd /home/mcp/mcp-project/testing/agent-testing
 ```
 
 Then these manual scenarios:
+- **WB-004** — Service Mode (primary deployment mode — always test in service mode)
 - **OC-001** — Full On-Call Pipeline (Primary Setup + Deferred)
 
 ### Tier 2 — Targeted (~15 min) | Run when touching related code
 
-- **WB-001–004** — Watcher Behavior (partially covered by UT-001 + IT-002)
+- **WB-001–003** — Watcher Behavior (partially covered by UT-001 + IT-002)
 
 ---
 
@@ -164,6 +165,21 @@ router ospf 1
 
 ---
 
+#### Recovered Path Handling
+
+**Purpose**: Validate the 2-option prompt when a deferred path has already recovered by the time it's investigated.
+
+After the first case is resolved and the deferred session starts:
+- If the deferred path has recovered (traceroute completes, interfaces up, neighbors present), the agent must present:
+  ```
+  A) Skip — path recovered, no action needed
+  B) Investigate anyway — run full diagnostics despite recovery
+  ```
+- Pick **A**: verify the agent says "Path recovered, skipping." and immediately returns to the remaining deferred failures list (no Jira update, no lessons evaluation for this item)
+- Pick **B**: verify the agent proceeds with full Step 2.5 diagnostics
+
+---
+
 #### Deferred Queue Handling
 
 **Purpose**: Validate that concurrent SLA events during an active session are deferred and surfaced in a follow-up review session.
@@ -197,6 +213,70 @@ Would you like to investigate any of these? Reply with a number, 'all', or 'none
 
 These checks can be done without breaking lab config.
 
+### WB-004 — Service Mode (tmux Session) ★ Primary Mode
+
+**This is the primary production deployment mode. Always verify this first.**
+
+The watcher is installed as a systemd service (`oncall-watcher.service`) which passes `--service` to
+`watcher.py`. In service mode, every agent session runs in a detached tmux window so the watcher
+process is never blocked by user interaction.
+
+#### A) Manual invocation (dev/testing)
+
+Start the watcher manually in service mode:
+```bash
+python3 oncall/watcher.py --service
+```
+
+Expected at startup: `Watcher started in SERVICE mode` in `logs/oncall_watcher.log`.
+
+Inject an SLA Down event:
+```bash
+echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.204","msg":"%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down"}' | sudo tee -a /var/log/network.json
+```
+
+Verify:
+1. A tmux session named `oncall-*` is created: `tmux list-sessions | grep oncall`
+2. `logs/oncall_watcher.log` shows: `Agent invoked in tmux session: oncall-<timestamp>`
+3. A notification is written to all open terminals and a desktop popup appears (if `notify-send` is available)
+4. Attach to the session: `tmux attach -t oncall-<timestamp>`
+5. Agent session is running with the SLA failure prompt
+6. **Scrollback**: press `Ctrl+B` then `[` to enter scroll mode (arrow keys or mouse scroll), `q` to exit scroll mode
+7. Type `/exit` in the agent session — tmux session closes
+8. Watcher resumes monitoring: `Agent session ended.` in log, no dangling lock file
+
+#### B) Systemd service
+
+```bash
+sudo systemctl status oncall-watcher.service
+```
+Expected: `Active: active (running)` and `ExecStart` shows `watcher.py --service`.
+
+To restart after code changes:
+```bash
+sudo systemctl restart oncall-watcher.service
+sudo journalctl -u oncall-watcher -f
+```
+
+#### C) Deferred queue in service mode
+
+Run the OC-001 break scenario (passive-interface on R3C) to generate two concurrent SLA failures.
+Verify:
+1. First failure → agent in `oncall-<ts>` tmux session
+2. Second failure → logged as `SKIPPED (deferred)` in watcher log
+3. After first session closes → deferred review in `oncall-deferred-<ts>` tmux session
+4. User presented with list of deferred failures, options to investigate or `/exit`
+
+#### D) SSH retry transparency
+
+If a transient SSH hiccup occurs during an on-call session, verify in `logs/oncall_watcher.log`:
+```
+SSH attempt 1/3 failed for <device_ip>: ... — retrying in 2s
+```
+The agent should recover automatically without reporting an error to the user.
+
+---
+
 ### WB-001 — Non-SLA Events Are Ignored
 
 Inject a syslog message that is NOT an SLA Down event:
@@ -226,29 +306,6 @@ Verify: no new `Agent invoked` entry appears in the log after the Up event.
 echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.218","msg":"netwatch,info event down [ type: simple, host: 10.0.0.1 ]"}' | sudo tee -a /var/log/network.json
 ```
 Expected: Watcher **does** invoke agent (MikroTik format matched).
-
-### WB-004 — Service Mode (tmux Session)
-
-Start the watcher in service mode:
-```bash
-python3 oncall/watcher.py --service
-```
-
-Expected at startup: `Watcher started in SERVICE mode` in `logs/oncall_watcher.log`.
-
-Inject an SLA Down event:
-```bash
-echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.204","msg":"%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down"}' | sudo tee -a /var/log/network.json
-```
-
-Verify:
-1. A tmux session named `oncall-*` is created: `tmux list-sessions | grep oncall`
-2. `logs/oncall_watcher.log` shows: `Agent invoked in tmux session: oncall-<timestamp>`
-3. A `wall` broadcast message appears on your terminal with the session name and attach command
-4. Attach to the session: `tmux attach -t oncall-<timestamp>`
-4. Agent session is running with the SLA failure prompt
-5. Type `/exit` in the agent session — tmux session closes
-6. Watcher resumes monitoring: `Agent session ended.` in log and `logs/oncall_watcher.log` shows no dangling lock
 
 ---
 

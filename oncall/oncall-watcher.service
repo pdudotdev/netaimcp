@@ -13,7 +13,6 @@ Restart=on-failure
 RestartSec=10
 
 # Hardening
-NoNewPrivileges=true
 ProtectSystem=strict
 ReadWritePaths=/home/mcp/mcp-project /var/log /tmp
 ProtectHome=false

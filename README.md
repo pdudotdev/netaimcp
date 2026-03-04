@@ -24,7 +24,7 @@
   - [🎓 Troubleshooting Scope](#-troubleshooting-scope)
   - [🛠️ Installation & Usage](#️-installation--usage)
   - [🔄 Test Network Topology](#-test-network-topology)
-  - [📞 aiNOC On-Call](#-ainoc-on-call)
+  - [📞 aiNOC Operating Modes](#-ainoc-operating-modes)
   - [⬆️ Planned Upgrades](#️-planned-upgrades)
   - [🌱 AI Automation 101](#-ai-automation-101)
   - [📄 Disclaimer](#-disclaimer)
@@ -43,8 +43,10 @@ AI-based **network troubleshooting framework** for multi-vendor, multi-protocol,
 - [x] **32 operational guardrails**
 - [x] **Jira integration**
 
-▫️ **Operating mode of aiNOC**:
-- [x] See [**aiNOC On-Call**](#-ainoc-on-call)
+▫️ **Operating modes of aiNOC**:
+- [x] **Interactive Mode** (current terminal)
+- [x] **Service Mode** (systemd service)
+- [x] See [**aiNOC Operating Modes**](#-ainoc-operating-modes)
 
 ▫️ **Important project files**:
 - [x] See [**file roles**](metadata/about/file_roles.md)
@@ -154,15 +156,15 @@ The included `CLAUDE.md` and `skills/*` are templates. **Customize them** with y
 ▫️ **Step 4**:
 Run the **aiNOC** watcher — two modes:
 
-**Interactive** (dev/testing): runs in your current terminal, agent sessions open inline.
+⌨️ **Interactive** (dev/testing): runs in your current terminal, agent sessions open inline.
 ```
 python3 oncall/watcher.py
 ```
 
-**Service** (production): install once, runs permanently, survives reboots. Each agent session
-spawns in a tmux window — attach with `tmux attach -t <session_name>`. You never pass `--service`
-manually; systemd handles that via the unit file's `ExecStart`.
+♻️ **Service** (production): install once, runs permanently, survives reboots. Each agent session
+spawns in a tmux window — attach with `tmux attach -t <session_name>`.
 ```bash
+sudo apt install tmux
 sudo cp oncall/oncall-watcher.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now oncall-watcher.service
@@ -198,30 +200,31 @@ sudo systemctl status oncall-watcher.service
 - [x] They are the network's fallback configs for `containerlab redeploy -t lab.yml`
 - [x] Default credentials: see **.env** file at [**.env.example**](.env.example)
 
-## 📞 aiNOC On-Call
-**On-Call Mode** is the new operating mode of aiNOC - introduced in v3.0, enhanced in v4.0.
+## 📞 aiNOC Operating Modes
 
-### What it does, in a nutshell?
-- [x] User configures connectivity paths
-  - **Cisco**: IP SLA & tracking
-  - **Arista**: Connectivity Monitor
-  - **MikroTik**: NetWatch
-- [x] User configures **Syslog** and **NTP**
-- [x] User configures **Syslog** server (Vector)
-- [x] User configures **Vector** with correct transforms
-- [x] Connectivity path failures are logged to **Syslog**
-- [x] **Vector** listens for and parses multi-vendor logs
-- [x] `sla_paths/paths.json` outlines paths for the agent
-- [x] `oncall/watcher.py` monitors Vector for new logs
-- [x] Once a new log arrives, the agent is invoked
-- [x] Watcher creates a new **Jira** ticket
-- [x] Agent gets log details pre-filled in prompt
-- [x] Agent starts troubleshooting procedures (`CLAUDE.md`, `/skills`, etc.)
-- [x] Identifies root cause and potential fix
-- [x] Upon user approval, applies and verifies the fix
-- [x] Logs results to **Jira** ticket and marks completion
-- [x] Actions logged to `oncall/watcher.log`
-- [x] Skipped events are deferred for later analysis
+aiNOC runs as an **On-Call watcher** that monitors Vector's `/var/log/network.json` for SLA path failures and automatically invokes a Claude agent to diagnose and fix the issue.
+
+### How It Works
+
+1. Network devices track connectivity paths (Cisco IP SLA, Arista Connectivity Monitor, MikroTik Netwatch etc.)
+2. Failures are logged to Syslog → **Vector** parses and writes to `/var/log/network.json`
+3. **`oncall/watcher.py`** detects the failure, opens a Jira ticket, and invokes a Claude agent session
+4. Agent follows structured troubleshooting (`CLAUDE.md` + `/skills`) → identifies root cause → proposes fix
+5. Only upon **operator approval**, the agent applies and verifies the fix
+6. Results are logged to **Jira** and the watcher resumes monitoring
+
+### Deployment Options
+
+| Mode | Command | Agent Sessions | Best For |
+|------|---------|---------------|----------|
+| **Interactive** | `python3 oncall/watcher.py` | Inline (current terminal) | Development, testing |
+| **Service** | `systemctl start oncall-watcher` | tmux (detached, attach anytime) | Production |
+
+See [Installation & Usage](#️-installation--usage) for setup instructions.
+
+### Storm Prevention
+
+Only one agent session runs at a time. Concurrent SLA failures during an active session are **deferred** and presented for review after the current case closes. A drain mechanism ensures no duplicate event processing.
 
 ## ⬆️ Planned Upgrades
 Expected in version v5.0:

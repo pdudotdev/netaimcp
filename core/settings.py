@@ -21,3 +21,7 @@ SSH_STRICT_KEY = os.getenv("SSH_STRICT_HOST_KEY",  "false").lower() == "true"
 # Scrapli SSH timeout (seconds) applied to all SSH connections.
 SSH_TIMEOUT_TRANSPORT = 30
 SSH_TIMEOUT_OPS       = 30
+
+# SSH retry settings — applied to transient connection failures only.
+SSH_RETRIES     = 2   # Max retry attempts after initial failure (3 total)
+SSH_RETRY_DELAY = 2   # Seconds between retries

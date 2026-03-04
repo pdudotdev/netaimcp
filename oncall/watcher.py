@@ -235,23 +235,51 @@ def save_pending_events(events):
 def notify_operator(session_name: str):
     """
     Notify logged-in operators that a new agent tmux session has been created.
-    Currently uses `wall` to broadcast to all terminals. This is the single
-    notification point — extend here for Discord, Slack, WhatsApp, or other
-    integrations in the future (guard each with an env var or config flag).
+    Uses two channels: direct write to /dev/pts/* (all open terminals) and
+    notify-send (desktop popup). Both are non-fatal.
+    This is the single notification point — extend here for Discord, Slack,
+    WhatsApp, or other integrations in the future.
     """
     message = (
-        f"[aiNOC] SLA path failure detected.\n"
-        f"Agent session started: {session_name}\n"
-        f"Attach with: tmux attach -t {session_name}"
+        f"\n[aiNOC] SLA path failure detected.\n"
+        f"Agent session: {session_name}\n"
+        f"Attach with: tmux attach -t {session_name}\n"
     )
+
+    # Write to all open pseudo-terminals owned by this user
+    pts_dir = Path("/dev/pts")
+    uid = os.getuid()
+    notified = 0
     try:
+        for pts in pts_dir.iterdir():
+            if not pts.name.isdigit():
+                continue
+            try:
+                if pts.stat().st_uid != uid:
+                    continue
+                pts.write_text(message)
+                notified += 1
+            except OSError:
+                pass  # Terminal may be closed or busy — skip silently
+    except OSError as e:
+        _wlog.warning("Could not iterate /dev/pts: %s", e)
+    if notified:
+        _wlog.debug("Notification written to %d terminal(s).", notified)
+
+    # Desktop notification (non-fatal if notify-send is unavailable or no display)
+    # Systemd services don't inherit DISPLAY/DBUS vars — supply predictable defaults.
+    try:
+        desktop_env = os.environ.copy()
+        desktop_env.setdefault("DISPLAY", ":0")
+        desktop_env.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path=/run/user/{os.getuid()}/bus")
         subprocess.run(
-            ["wall", message],
+            ["notify-send", "-u", "critical", "aiNOC — SLA Failure", message.strip()],
+            env=desktop_env,
             capture_output=True,
             timeout=5,
         )
-    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
-        _wlog.warning("wall notification failed: %s", e)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass  # No desktop environment or notify-send not installed — ignore
 
 
 def invoke_claude(event, device_map, service=False):
@@ -330,6 +358,8 @@ def invoke_claude(event, device_map, service=False):
                 ["tmux", "new-session", "-d", "-s", session_name, CLAUDE_BIN, prompt],
                 cwd=PROJECT_DIR,
             )
+            subprocess.run(["tmux", "set-option", "-t", session_name, "mouse", "on"], capture_output=True)
+            subprocess.run(["tmux", "set-option", "-t", session_name, "history-limit", "5000"], capture_output=True)
             _wlog.info("Agent invoked in tmux session: %s", session_name)
             _wlog.info("Attach with: tmux attach -t %s", session_name)
             notify_operator(session_name)
@@ -416,6 +446,8 @@ def invoke_deferred_review(device_map, service=False):
                 ["tmux", "new-session", "-d", "-s", session_name, CLAUDE_BIN, prompt],
                 cwd=PROJECT_DIR,
             )
+            subprocess.run(["tmux", "set-option", "-t", session_name, "mouse", "on"], capture_output=True)
+            subprocess.run(["tmux", "set-option", "-t", session_name, "history-limit", "5000"], capture_output=True)
             _wlog.info("Deferred review in tmux session: %s", session_name)
             _wlog.info("Attach with: tmux attach -t %s", session_name)
             notify_operator(session_name)
