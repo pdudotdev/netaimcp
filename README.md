@@ -152,26 +152,34 @@ The included `CLAUDE.md` and `skills/*` are templates. **Customize them** with y
 - aiNOC monitors Vector's `/var/log/network.json` file for specific logs and parses them
 
 ▫️ **Step 4**:
-Run the **aiNOC** watcher in the terminal or as a **daemon**:
+Run the **aiNOC** watcher — two modes:
+
+**Interactive** (dev/testing): runs in your current terminal, agent sessions open inline.
 ```
-python3 oncall/watcher.py      # default: interactive terminal
+python3 oncall/watcher.py
 ```
-*or:*
+
+**Service** (production): install once, runs permanently, survives reboots. Each agent session
+spawns in a tmux window — attach with `tmux attach -t <session_name>`. You never pass `--service`
+manually; systemd handles that via the unit file's `ExecStart`.
+```bash
+sudo cp oncall/oncall-watcher.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now oncall-watcher.service
 ```
-python3 oncall/watcher.py -d   # daemon mode, across reboots
-```
+Manage with: `systemctl start|stop|restart|status oncall-watcher`
 
 ▫️ **Step 5**:
 Check if **Watcher** and **Vector** are running:
 ```
 sudo systemctl status vector
-python3 oncall/watcher.py 
+python3 oncall/watcher.py
 ainoc.watcher — Watcher started. Monitoring /var/log/network.json for IP SLA Down events.
 ```
-*or:*
+*or (if installed as a systemd service):*
 ```
 sudo systemctl status vector
-sudo systemctl status oncall_watcher.service
+sudo systemctl status oncall-watcher.service
 ```
 
 ## 🔄 Test Network Topology

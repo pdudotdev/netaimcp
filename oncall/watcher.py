@@ -232,13 +232,35 @@ def save_pending_events(events):
     PENDING_EVENTS_FILE.write_text(json.dumps(events, indent=2))
 
 
-def invoke_claude(event, device_map, daemon=False):
+def notify_operator(session_name: str):
+    """
+    Notify logged-in operators that a new agent tmux session has been created.
+    Currently uses `wall` to broadcast to all terminals. This is the single
+    notification point — extend here for Discord, Slack, WhatsApp, or other
+    integrations in the future (guard each with an env var or config flag).
+    """
+    message = (
+        f"[aiNOC] SLA path failure detected.\n"
+        f"Agent session started: {session_name}\n"
+        f"Attach with: tmux attach -t {session_name}"
+    )
+    try:
+        subprocess.run(
+            ["wall", message],
+            capture_output=True,
+            timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        _wlog.warning("wall notification failed: %s", e)
+
+
+def invoke_claude(event, device_map, service=False):
     """
     Invoke Claude Code with SLA event context.
     Records session start/end times, scans for deferred failures after the session,
     and saves them to pending_events.json for the review session.
 
-    In daemon mode, the agent is spawned in a detached tmux session so the operator
+    In service mode, the agent is spawned in a detached tmux session so the operator
     can attach (tmux attach -t <session_name>) and interact with it at any time.
     In default mode, Claude runs interactively in the current terminal.
     """
@@ -301,7 +323,7 @@ def invoke_claude(event, device_map, daemon=False):
     session_end = None
 
     try:
-        if daemon:
+        if service:
             # Spawn Claude in a detached tmux session so the operator can attach and interact
             session_name = f"oncall-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
             subprocess.run(
@@ -310,6 +332,7 @@ def invoke_claude(event, device_map, daemon=False):
             )
             _wlog.info("Agent invoked in tmux session: %s", session_name)
             _wlog.info("Attach with: tmux attach -t %s", session_name)
+            notify_operator(session_name)
             # Poll until the tmux session exits (Claude finished or user typed /exit)
             while subprocess.run(
                 ["tmux", "has-session", "-t", session_name], capture_output=True
@@ -333,12 +356,12 @@ def invoke_claude(event, device_map, daemon=False):
     scan_for_recovery_events(event, session_start, session_end, device_map)
 
 
-def invoke_deferred_review(device_map, daemon=False):
+def invoke_deferred_review(device_map, service=False):
     """
     Spawn a focused agent session whose only job is to present deferred SLA failures
     to the user and ask whether to investigate them.
     Called from main() immediately after invoke_claude() if pending_events.json exists.
-    Uses tmux in daemon mode (same pattern as invoke_claude).
+    Uses tmux in service mode (same pattern as invoke_claude).
     """
     try:
         events = json.loads(PENDING_EVENTS_FILE.read_text())
@@ -387,7 +410,7 @@ def invoke_deferred_review(device_map, daemon=False):
     _wlog.info("Deferred review session invoked for %d failure(s).", len(events))
 
     try:
-        if daemon:
+        if service:
             session_name = f"oncall-deferred-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
             subprocess.run(
                 ["tmux", "new-session", "-d", "-s", session_name, CLAUDE_BIN, prompt],
@@ -395,6 +418,7 @@ def invoke_deferred_review(device_map, daemon=False):
             )
             _wlog.info("Deferred review in tmux session: %s", session_name)
             _wlog.info("Attach with: tmux attach -t %s", session_name)
+            notify_operator(session_name)
             while subprocess.run(
                 ["tmux", "has-session", "-t", session_name], capture_output=True
             ).returncode == 0:
@@ -447,7 +471,10 @@ def tail_follow(filepath, drain):
 def signal_handler(signum, frame):
     """Handle SIGINT/SIGTERM gracefully."""
     cleanup_lock()
-    _wlog.info("Watcher stopped (signal received).")
+    _wlog.info(
+        "Watcher stopped (signal %d). Active tmux agent sessions (if any) will continue running.",
+        signum,
+    )
     sys.exit(0)
 
 
@@ -457,27 +484,28 @@ def parse_args():
         description="aiNOC On-Call Watcher — monitors SLA paths and invokes Claude on failures."
     )
     parser.add_argument(
-        "-d", "--daemon",
+        "-s", "--service",
         action="store_true",
         help=(
-            "Run agent sessions inside detached tmux sessions instead of the current terminal. "
-            "Allows the watcher to run as a background process while operators attach to "
-            "individual agent sessions with: tmux attach -t <session_name>. "
+            "Run in systemd service mode: agent sessions are spawned in detached tmux sessions "
+            "so the watcher can run as a persistent background service while operators attach "
+            "to individual sessions with: tmux attach -t <session_name>. "
+            "A wall notification is broadcast when a session starts. "
             "Requires tmux (install with: apt install tmux)."
         ),
     )
     return parser.parse_args()
 
 
-def main(daemon=False):
+def main(service=False):
     """Main watcher loop."""
     setup_watcher_logging(WATCHER_LOG)
 
-    if daemon:
+    if service:
         if not shutil.which("tmux"):
-            print("ERROR: tmux is required for daemon mode. Install with: apt install tmux", file=sys.stderr)
+            print("ERROR: tmux is required for service mode. Install with: apt install tmux", file=sys.stderr)
             sys.exit(1)
-        _wlog.info("Watcher started in DAEMON mode — agent sessions will use tmux.")
+        _wlog.info("Watcher started in SERVICE mode — agent sessions will use tmux.")
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -525,12 +553,11 @@ def main(daemon=False):
         if is_lock_stale():
             cleanup_lock()
 
-        # Invoke Claude (passes daemon flag through to control tmux vs direct invocation)
-        invoke_claude(event, device_map, daemon=daemon)
+        invoke_claude(event, device_map, service=service)
 
         # If deferred failures were saved, handle them in a focused review session
         if PENDING_EVENTS_FILE.exists():
-            invoke_deferred_review(device_map, daemon=daemon)
+            invoke_deferred_review(device_map, service=service)
         else:
             _wlog.info("Resuming monitoring.")
 
@@ -540,4 +567,4 @@ def main(daemon=False):
 
 if __name__ == "__main__":
     args = parse_args()
-    main(daemon=args.daemon)
+    main(service=args.service)

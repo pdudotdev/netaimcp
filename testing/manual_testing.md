@@ -227,14 +227,14 @@ echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.218","msg":"netwatch,info
 ```
 Expected: Watcher **does** invoke agent (MikroTik format matched).
 
-### WB-004 — Daemon Mode (tmux Session)
+### WB-004 — Service Mode (tmux Session)
 
-Start the watcher in daemon mode:
+Start the watcher in service mode:
 ```bash
-python3 oncall/watcher.py -d
+python3 oncall/watcher.py --service
 ```
 
-Expected at startup: `Watcher started in DAEMON mode` in `logs/oncall_watcher.log`.
+Expected at startup: `Watcher started in SERVICE mode` in `logs/oncall_watcher.log`.
 
 Inject an SLA Down event:
 ```bash
@@ -244,7 +244,8 @@ echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.204","msg":"%TRACK-6-STAT
 Verify:
 1. A tmux session named `oncall-*` is created: `tmux list-sessions | grep oncall`
 2. `logs/oncall_watcher.log` shows: `Agent invoked in tmux session: oncall-<timestamp>`
-3. Attach to the session: `tmux attach -t oncall-<timestamp>`
+3. A `wall` broadcast message appears on your terminal with the session name and attach command
+4. Attach to the session: `tmux attach -t oncall-<timestamp>`
 4. Agent session is running with the SLA failure prompt
 5. Type `/exit` in the agent session — tmux session closes
 6. Watcher resumes monitoring: `Agent session ended.` in log and `logs/oncall_watcher.log` shows no dangling lock

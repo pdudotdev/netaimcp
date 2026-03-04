@@ -2,14 +2,26 @@
 Description=aiNOC On-Call Watcher
 Documentation=file:/home/mcp/mcp-project/README.md
 After=network.target
+Wants=vector.service
 
 [Service]
 Type=simple
 User=mcp
 WorkingDirectory=/home/mcp/mcp-project
-ExecStart=/usr/bin/python3 /home/mcp/mcp-project/oncall/watcher.py -d
+ExecStart=/usr/bin/python3 /home/mcp/mcp-project/oncall/watcher.py --service
 Restart=on-failure
 RestartSec=10
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/mcp/mcp-project /var/log /tmp
+ProtectHome=false
+
+# Logging — integrates with journalctl -u oncall-watcher
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ainoc-watcher
 
 # Environment — override or add variables as needed
 # EnvironmentFile=/home/mcp/mcp-project/.env

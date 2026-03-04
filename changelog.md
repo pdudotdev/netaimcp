@@ -56,7 +56,7 @@ All notable changes to this project are documented in this file.
 
 ### 🚨 On-Call & Operational
 - SLA recovery (Up) event detection and logging
-- Added daemon mode (`-d` flag) with tmux session support
+- Added service mode (`--service` flag, renamed from `-d`/`--daemon`) with tmux session support and `wall` notification
 - Added systemd service file (`oncall/oncall-watcher.service`) for production deployment
 - ~~Added pre-change snapshot support in `push_config`~~ *(removed in v4.5 — feature was write-only)*
 - Generated rollback advisory for all config changes
