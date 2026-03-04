@@ -169,7 +169,8 @@ sudo cp oncall/oncall-watcher.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now oncall-watcher.service
 ```
-Manage with: `systemctl start|stop|restart|status oncall-watcher`
+Manage with: 
+`systemctl start|stop|restart|status oncall-watcher`
 
 ▫️ **Step 5**:
 Check if **Watcher** and **Vector** are running:
@@ -202,14 +203,14 @@ sudo systemctl status oncall-watcher.service
 
 ## 📞 aiNOC Operating Modes
 
-aiNOC runs as an **On-Call watcher** that monitors Vector's `/var/log/network.json` for SLA path failures and automatically invokes a Claude agent to diagnose and fix the issue.
+aiNOC runs as an **On-Call watcher** that monitors Vector's `/var/log/network.json` for SLA path failures and automatically invokes a Claude agent to diagnose the issue and propose a fix.
 
 ### How It Works
 
 1. Network devices track connectivity paths (Cisco IP SLA, Arista Connectivity Monitor, MikroTik Netwatch etc.)
 2. Failures are logged to Syslog → **Vector** parses and writes to `/var/log/network.json`
 3. **`oncall/watcher.py`** detects the failure, opens a Jira ticket, and invokes a Claude agent session
-4. Agent follows structured troubleshooting (`CLAUDE.md` + `/skills`) → identifies root cause → proposes fix
+4. Agent follows structured troubleshooting (`CLAUDE.md` + `/skills` + MCP tools) → identifies root cause → proposes fix
 5. Only upon **operator approval**, the agent applies and verifies the fix
 6. Results are logged to **Jira** and the watcher resumes monitoring
 
@@ -220,11 +221,11 @@ aiNOC runs as an **On-Call watcher** that monitors Vector's `/var/log/network.js
 | **Interactive** | `python3 oncall/watcher.py` | Inline (current terminal) | Development, testing |
 | **Service** | `systemctl start oncall-watcher` | tmux (detached, attach anytime) | Production |
 
-See [Installation & Usage](#️-installation--usage) for setup instructions.
+▫️ See [Installation & Usage](#️-installation--usage) for setup instructions.
 
 ### Storm Prevention
 
-Only one agent session runs at a time. Concurrent SLA failures during an active session are **deferred** and presented for review after the current case closes. A drain mechanism ensures no duplicate event processing.
+Only one agent session runs at a time. Concurrent SLA failures during an active session are **deferred** and presented for review after the current case closes. A drain mechanism ensures no duplicate event processing. A process-level lock file (`oncall.lock`) with stale-PID detection prevents duplicate watcher instances.
 
 ## ⬆️ Planned Upgrades
 Expected in version v5.0:
