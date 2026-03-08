@@ -231,8 +231,7 @@ Only one agent session runs at a time. Concurrent SLA failures during an active 
 Expected in version v5.0:
 - [ ] Fresh, enterprise-focused topology
 - [ ] New vendors (Juniper, Aruba, SONiC)
-- [ ] New protocols and services
-- [ ] NetBox integration
+- [ ] Improved reliability and security
 
 ## 🌱 AI Automation 101
 If you're completely new to Network Automation using AI & MCP, then you may want to [**start here**](https://www.udemy.com/course/mcp-server/?referralCode=D62613A8194D2D915B55) before moving on.
