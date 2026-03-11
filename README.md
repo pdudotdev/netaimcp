@@ -32,7 +32,7 @@
   - [🌱 AI Automation 101](#-ai-automation-101)
   - [📄 Disclaimer](#-disclaimer)
   - [📜 License](#-license)
-  - [📧 Professional Collaborations](#-collaborations)
+  - [📧 Collaborations](#-collaborations)
 
 ## 🔭 Overview
 AI-based **network troubleshooting framework** for multi-vendor, multi-protocol, multi-area/multi-AS enterprise networks.
@@ -128,7 +128,7 @@ Create `settings.json` under `.claude/`:
 | Juniper | JunOS | `junos` | On-Request |
 | MikroTik | RouterOS | `routeros` | On-Request |
 | Aruba | AOS-CX | `aos` | On-Request |
-| SONiC | SONiC | `frr` | On-Request |
+| SONiC | FRR | `frr` | On-Request |
 | VyOS | VyOS | `vyos` | On-Request |
 
 ## 🚛 Supported Transports
@@ -192,7 +192,7 @@ python3 oncall/watcher.py
 ```
 
 ♻️ **Service** (production): install once, runs permanently, survives reboots. Each agent session
-spawns in a tmux window — attach with `tmux attach -t <session_name>`.
+spawns in a **tmux** window — attach with `tmux attach -t <session_name>`.
 ```bash
 sudo apt install tmux
 sudo cp oncall/oncall-watcher.service /etc/systemd/system/
@@ -270,6 +270,6 @@ Licensed under the [**GNU GENERAL PUBLIC LICENSE Version 3**](https://github.com
 ## 📧 Collaborations
 Interested in collaborating?
 - **Email**:  
-  - Reach out at **hello@ainoc.dev**.
+  - Reach out at **hello@ainoc.dev**
 - **LinkedIn**:
-  - Let's discuss via [**LinkedIn**](https://www.linkedin.com/in/tmihaicatalin/).
+  - Let's discuss via [**LinkedIn**](https://www.linkedin.com/in/tmihaicatalin/)

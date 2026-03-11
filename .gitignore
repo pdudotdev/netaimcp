@@ -5,6 +5,7 @@ mcp/
 **/.git/
 __pycache__/
 clab-ainoc/
+quickie/
 .MCPServer.py.swp
 testing/agent-testing/integration/test_mcp_tools_results.md
 testing/agent-testing/platform_tests/platform_coverage_results.md
