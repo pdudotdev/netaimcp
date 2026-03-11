@@ -1,0 +1,289 @@
+Building configuration...
+
+Current configuration : 7513 bytes
+!
+! Last configuration change at 14:10:05 UTC Wed Mar 11 2026 by admin
+!
+version 17.6
+service timestamps debug datetime msec
+service timestamps log datetime msec
+! Call-home is enabled by Smart-Licensing.
+service call-home
+platform qfp utilization monitor load 80
+platform punt-keepalive disable-kernel-core
+platform console serial
+!
+hostname X1C
+!
+boot-start-marker
+boot-end-marker
+!
+!
+vrf definition clab-mgmt
+ description Containerlab management VRF (DO NOT DELETE)
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+no aaa new-model
+!
+!
+!
+!
+!
+!
+!
+ip domain name example.com
+!
+!
+!
+login on-success log
+ipv6 unicast-routing
+!
+!
+!         
+!
+!
+!
+!
+subscriber templating
+! 
+! 
+! 
+! 
+!
+!
+!
+multilink bundle-name authenticated
+!
+!
+!
+!
+!
+!
+!
+!
+!
+crypto pki trustpoint TP-self-signed-3914640905
+ enrollment selfsigned
+ subject-name cn=IOS-Self-Signed-Certificate-3914640905
+ revocation-check none
+ rsakeypair TP-self-signed-3914640905
+!
+crypto pki trustpoint SLA-TrustPoint
+ enrollment pkcs12
+ revocation-check crl
+!
+!
+crypto pki certificate chain TP-self-signed-3914640905
+ certificate self-signed 01
+  30820330 30820218 A0030201 02020101 300D0609 2A864886 F70D0101 05050030 
+  31312F30 2D060355 04031326 494F532D 53656C66 2D536967 6E65642D 43657274 
+  69666963 6174652D 33393134 36343039 3035301E 170D3236 30333131 30363232 
+  32365A17 0D333630 33313030 36323232 365A3031 312F302D 06035504 03132649 
+  4F532D53 656C662D 5369676E 65642D43 65727469 66696361 74652D33 39313436 
+  34303930 35308201 22300D06 092A8648 86F70D01 01010500 0382010F 00308201 
+  0A028201 0100B4D6 A6AD1A8D 2B5B79E1 FED0CFD2 FE8253C1 FAA57A5B 10B63830 
+  F044124B 12543A3A 154CF94E 73D0F5FF 63DA3A44 68AA8359 B03888D5 0174C8F7 
+  909F132C 0EF89E82 47EE82C5 45683F49 C55A782B 631AEEA4 76D0024E 61C942AF 
+  01750B12 3609DB83 46E2733D F208BDC0 A3B1331C D3F96F12 34922A82 34F58E0A 
+  CD82DD96 9A543DE1 B97EFB8B 53B2409D 51120989 BF1FC469 1DF61608 B314A9E3 
+  F0C63B5B 2B773899 691723EB E13960AC 4AA57A36 18DD6608 E62227C0 7668EC9A 
+  5982339F 00F2F4C9 9B23191A F8B5EC53 801E98C5 3F4615FE B64A4585 E5401EBD 
+  9BCF3413 C9DB6154 62D8278C 6F4D0199 6B7B1C2E 7E99F07D 37430DF8 63B844F5 
+  E6B3B1CD 6DCF0203 010001A3 53305130 0F060355 1D130101 FF040530 030101FF 
+  301F0603 551D2304 18301680 145B93FF E117DB29 62A1F3BC 425BFF2D 1468C338 
+  FA301D06 03551D0E 04160414 5B93FFE1 17DB2962 A1F3BC42 5BFF2D14 68C338FA 
+  300D0609 2A864886 F70D0101 05050003 82010100 31BE2AF8 80355CEB A56A1E6C 
+  0EAC5E71 02AAE4E8 EE72CE8F D10FD7BF 58DED8F5 BA5F2AFD 4E21BCC3 10C803B3 
+  A9336B8F C6C1A00F C7C915F4 10810579 A4446729 E4C5837C 738D019B B32A8457 
+  6125D52F 8C47430B 5D13666A 6C834E1A 00330D46 6AF63F6E 52B19938 AE9DA01F 
+  1C0B6989 D76343B4 81949796 2A800496 CE8A790F 6D25D835 AB3A7D2B 46712824 
+  4E102D33 767BAE02 390B2C1D E3ED6C1A 5433A2D2 BC7DD7F4 08FDB177 BED7709B 
+  3526C8E8 1AED18FE 8A2FBFC9 7C2AF31D E38EBD37 6965EE5D 621B6D68 32ECE8FD 
+  F91C573D 05A198BD 75BF5383 521E4A92 A9E0DD5F A445BFE0 874DF819 8D49C521 
+  A39990CE 82121D60 AC574A67 0368B74D B26B94EE
+        quit
+crypto pki certificate chain SLA-TrustPoint
+ certificate ca 01
+  30820321 30820209 A0030201 02020101 300D0609 2A864886 F70D0101 0B050030 
+  32310E30 0C060355 040A1305 43697363 6F312030 1E060355 04031317 43697363 
+  6F204C69 63656E73 696E6720 526F6F74 20434130 1E170D31 33303533 30313934 
+  3834375A 170D3338 30353330 31393438 34375A30 32310E30 0C060355 040A1305 
+  43697363 6F312030 1E060355 04031317 43697363 6F204C69 63656E73 696E6720 
+  526F6F74 20434130 82012230 0D06092A 864886F7 0D010101 05000382 010F0030 
+  82010A02 82010100 A6BCBD96 131E05F7 145EA72C 2CD686E6 17222EA1 F1EFF64D 
+  CBB4C798 212AA147 C655D8D7 9471380D 8711441E 1AAF071A 9CAE6388 8A38E520 
+  1C394D78 462EF239 C659F715 B98C0A59 5BBB5CBD 0CFEBEA3 700A8BF7 D8F256EE 
+  4AA4E80D DB6FD1C9 60B1FD18 FFC69C96 6FA68957 A2617DE7 104FDC5F EA2956AC 
+  7390A3EB 2B5436AD C847A2C5 DAB553EB 69A9A535 58E9F3E3 C0BD23CF 58BD7188 
+  68E69491 20F320E7 948E71D7 AE3BCC84 F10684C7 4BC8E00F 539BA42B 42C68BB7 
+  C7479096 B4CB2D62 EA2F505D C7B062A4 6811D95B E8250FC4 5D5D5FB8 8F27D191 
+  C55F0D76 61F9A4CD 3D992327 A8BB03BD 4E6D7069 7CBADF8B DF5F4368 95135E44 
+  DFC7C6CF 04DD7FD1 02030100 01A34230 40300E06 03551D0F 0101FF04 04030201 
+  06300F06 03551D13 0101FF04 05300301 01FF301D 0603551D 0E041604 1449DC85 
+  4B3D31E5 1B3E6A17 606AF333 3D3B4C73 E8300D06 092A8648 86F70D01 010B0500 
+  03820101 00507F24 D3932A66 86025D9F E838AE5C 6D4DF6B0 49631C78 240DA905 
+  604EDCDE FF4FED2B 77FC460E CD636FDB DD44681E 3A5673AB 9093D3B1 6C9E3D8B 
+  D98987BF E40CBD9E 1AECA0C2 2189BB5C 8FA85686 CD98B646 5575B146 8DFC66A8 
+  467A3DF4 4D565700 6ADF0F0D CF835015 3C04FF7C 21E878AC 11BA9CD2 55A9232C 
+  7CA7B7E6 C1AF74F6 152E99B7 B1FCF9BB E973DE7F 5BDDEB86 C71E3B49 1765308B 
+  5FB0DA06 B92AFE7F 494E8A9E 07B85737 F3A58BE1 1A48A229 C37C1E69 39F08678 
+  80DDCD16 D6BACECA EEBC7CF9 8428787B 35202CDC 60E4616A B623CDBD 230E3AFB 
+  418616A9 4093E049 4D10AB75 27E86F73 932E35B5 8862FDAE 0275156F 719BB2F0 
+  D697DF7F 28
+        quit
+!         
+!
+!
+!
+!
+!
+!
+!
+license udi pid C8000V sn 9853U7DBZXZ
+license boot level network-premier addon dna-premier
+diagnostic bootup level minimal
+memory free low-watermark processor 68445
+!
+!
+spanning-tree extend system-id
+!
+username admin privilege 15 password 0 admin
+!
+redundancy
+!
+!
+!
+!
+!         
+!
+!
+! 
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+! 
+! 
+!
+!
+interface Loopback0
+ ip address 8.8.8.8 255.255.255.255
+!         
+interface GigabitEthernet1
+ description Containerlab management interface
+ vrf forwarding clab-mgmt
+ ip address 172.20.20.240 255.255.255.0
+ negotiation auto
+ ipv6 address 3FFF:172:20:20::3/64
+ ipv6 address 3FFF:172:20:20::7/64
+ ipv6 address 3FFF:172:20:20::F/64
+ ipv6 address 3FFF:172:20:20::10/64
+ no mop enabled
+ no mop sysid
+ no shutdown
+!
+interface GigabitEthernet2
+ description TO-IAN
+ ip address 200.40.8.1 255.255.255.252
+ negotiation auto
+ no mop enabled
+ no mop sysid
+ no shutdown
+!
+interface GigabitEthernet3
+ description TO-IBN
+ ip address 200.50.8.1 255.255.255.252
+ negotiation auto
+ no mop enabled
+ no mop sysid
+ no shutdown
+!
+router bgp 2020
+ bgp router-id 20.20.20.20
+ bgp log-neighbor-changes
+ neighbor 200.40.8.2 remote-as 4040
+ neighbor 200.50.8.2 remote-as 5050
+ !
+ address-family ipv4
+  network 8.8.8.8 mask 255.255.255.255
+  neighbor 200.40.8.2 activate
+  neighbor 200.50.8.2 activate
+ exit-address-family
+!
+ip forward-protocol nd
+no ip http server
+ip http secure-server
+!
+ip route vrf clab-mgmt 0.0.0.0 0.0.0.0 172.20.20.1
+ip ssh maxstartups 128
+ip ssh server algorithm mac hmac-sha2-512
+!         
+!
+logging trap syslog-format rfc5424
+logging source-interface GigabitEthernet1 vrf clab-mgmt
+logging host 172.20.20.1 vrf clab-mgmt
+ipv6 route vrf clab-mgmt ::/0 3FFF:172:20:20::1
+!
+!
+!
+!
+control-plane
+!
+!
+mgcp behavior rsip-range tgcp-only
+mgcp behavior comedia-role none
+mgcp behavior comedia-check-media-src disable
+mgcp behavior comedia-sdp-force disable
+!
+mgcp profile default
+!
+!
+!
+!
+!         
+!
+line con 0
+ logging synchronous
+ stopbits 1
+line aux 0
+line vty 0 4
+ logging synchronous
+ login local
+ length 0
+ transport input all
+!
+call-home
+ ! If contact email address in call-home is configured as sch-smart-licensing@cisco.com
+ ! the email address configured in Cisco Smart License Portal will be used as contact email address to send SCH notifications.
+ contact-email-addr sch-smart-licensing@cisco.com
+ profile "CiscoTAC-1"
+  active
+  destination transport-method http
+ntp source GigabitEthernet1
+ntp server vrf clab-mgmt 172.20.20.1 prefer
+!         
+netconf detailed-error
+netconf max-sessions 16
+!
+!
+!
+!
+!
+netconf-yang
+restconf
+end

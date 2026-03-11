@@ -75,29 +75,6 @@ def setup_logging() -> None:
     root.addHandler(sh)
 
 
-def setup_config_logging(log_file: Path) -> None:
-    """Extend setup_logging() with a rotating file handler on ainoc.tools.config.
-
-    Captures a persistent audit trail of all push_config START and RESULT entries.
-    The file handler captures DEBUG and above so full command lists are recorded.
-
-    Args:
-        log_file: Path to the config change log file (e.g. config_changes.log).
-    """
-    setup_logging()  # Ensure ainoc logger is configured with stderr handler
-
-    config_log = logging.getLogger("ainoc.tools.config")
-
-    # Avoid adding a second file handler if already set up
-    if any(isinstance(h, RotatingFileHandler) for h in config_log.handlers):
-        return
-
-    log_file.parent.mkdir(parents=True, exist_ok=True)
-    fh = RotatingFileHandler(log_file, maxBytes=10 * 1024 * 1024, backupCount=3)
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(JSONFormatter())
-    config_log.addHandler(fh)
-
 
 def setup_watcher_logging(log_file: Path) -> None:
     """Extend setup_logging() with a rotating file handler on ainoc.watcher.

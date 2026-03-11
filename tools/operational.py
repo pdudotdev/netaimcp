@@ -1,7 +1,8 @@
 """Operational tools: get_interfaces, ping, traceroute, run_show."""
 import json
 from core.inventory import devices
-from platforms.platform_map import PLATFORM_MAP
+from core.settings import SSH_TIMEOUT_OPS_LONG
+from platforms.platform_map import get_action
 from transport import execute_command
 from input_models.models import InterfacesQuery, PingInput, TracerouteInput, ShowCommand
 from tools import _error_response
@@ -15,9 +16,8 @@ async def get_interfaces(params: InterfacesQuery) -> dict:
     status during connectivity and routing investigations.
 
     Notes:
-    - Command syntax is vendor-specific and resolved via COMMAND_MAP.
+    - Command syntax is vendor-specific and resolved via PLATFORM_MAP.
     - Returns a summary view of interfaces.
-    - Results may be cached briefly.
 
     Recommended usage:
     - Use when troubleshooting down links or missing adjacencies.
@@ -30,11 +30,11 @@ async def get_interfaces(params: InterfacesQuery) -> dict:
         return _error_response(params.device, f"Unknown device: {params.device}")
 
     try:
-        action = PLATFORM_MAP[device["cli_style"]]["interfaces"]["interface_status"]
+        action = get_action(device, "interfaces", "interface_status")
     except KeyError:
         return _error_response(params.device, f"Interface status not supported on {device['cli_style'].upper()}")
 
-    return await execute_command(params.device, action)
+    return await execute_command(params.device, action, transport=params.transport)
 
 
 async def ping(params: PingInput) -> dict:
@@ -45,9 +45,7 @@ async def ping(params: PingInput) -> dict:
     and detect packet loss or reachability failures.
 
     Notes:
-    - Command syntax is vendor-specific and resolved via COMMAND_MAP.
-    - Source parameter is optional and may not be supported on all platforms.
-    - Results are cached briefly.
+    - All devices use SSH CLI for ping (resolved via PLATFORM_MAP tools.ping).
 
     Recommended usage:
     - Use after verifying routing to confirm data-plane reachability.
@@ -57,15 +55,14 @@ async def ping(params: PingInput) -> dict:
         return _error_response(params.device, f"Unknown device: {params.device}")
 
     cli_style = device["cli_style"]
-    base = PLATFORM_MAP[cli_style]["tools"]["ping"]
+    try:
+        base = get_action(device, "tools", "ping", vrf=params.vrf)
+    except KeyError:
+        return _error_response(params.device, f"Ping not supported on {cli_style.upper()}")
 
-    if isinstance(base, dict):
-        action = base.copy()
-        action["body"] = {"address": params.destination}
-    else:
-        action = f"{base} {params.destination}"
-
-    if params.source and cli_style in ("ios", "eos"):
+    # CLI string → SSH via transport dispatcher
+    action = f"{base} {params.destination}"
+    if params.source and cli_style == "ios":
         action += f" source {params.source}"
 
     return await execute_command(params.device, action)
@@ -79,10 +76,7 @@ async def traceroute(params: TracerouteInput) -> dict:
     or where traffic is being dropped.
 
     Notes:
-    - Command syntax is vendor-specific and resolved via COMMAND_MAP.
-    - Output format varies by platform.
-    - Results are cached briefly.
-    - Source parameter is optional and may not be supported on all platforms.
+    - All devices use SSH CLI for traceroute (resolved via PLATFORM_MAP tools.traceroute).
 
     Recommended usage:
     - Use when ping succeeds but path is unexpected.
@@ -95,19 +89,17 @@ async def traceroute(params: TracerouteInput) -> dict:
         return _error_response(params.device, f"Unknown device: {params.device}")
 
     cli_style = device["cli_style"]
-    base = PLATFORM_MAP[cli_style]["tools"]["traceroute"]
+    try:
+        base = get_action(device, "tools", "traceroute", vrf=params.vrf)
+    except KeyError:
+        return _error_response(params.device, f"Traceroute not supported on {cli_style.upper()}")
 
-    if isinstance(base, dict):
-        action = base.copy()
-        action["body"] = {"address": params.destination, **base.get("default_body", {})}
-        if params.source and cli_style == "routeros":
-            action["body"]["src-address"] = params.source
-    else:
-        action = f"{base} {params.destination}"
-        if params.source and cli_style in ("ios", "eos"):
-            action += f" source {params.source}"
+    # CLI string → SSH via transport dispatcher
+    action = f"{base} {params.destination}"
+    if params.source and cli_style == "ios":
+        action += f" source {params.source}"
 
-    return await execute_command(params.device, action)
+    return await execute_command(params.device, action, timeout_ops=SSH_TIMEOUT_OPS_LONG)
 
 
 async def run_show(params: ShowCommand) -> dict:
@@ -119,4 +111,4 @@ async def run_show(params: ShowCommand) -> dict:
             command = parsed
     except (json.JSONDecodeError, ValueError):
         pass
-    return await execute_command(params.device, command, ttl=0)
+    return await execute_command(params.device, command)

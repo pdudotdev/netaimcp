@@ -1,26 +1,26 @@
-📄 CASE NO. - 00001-R10C-SLA
+📄 CASE NO. - 00001-A1C-SLA
 Date: YYYY-MM-DD HH:MM UTC
-Device(s): R10C
+Device(s): A1C
 
 🔹 Reported Issue:
-  - Router R2C lost its R3C neighbor
+  - A1C lost OSPF adjacency with C1C (ABR)
 
 🔹 All Commands Used To Isolate Issue:
-  - show ip ospf neighbor
-  - show ip interface brief
-  - show ip ospf interface Ethernet0/1
-  - show ip route
+  - get_interfaces(A1C)
+  - get_ospf(A1C, neighbors)
+  - get_ospf(A1C, interfaces)
+  - traceroute(A1C, 10.0.0.26)
 
 🔹 Commands That Actually Identified the Issue:
-  - show ip ospf neighbor
-  - show ip ospf interface Ethernet0/1
+  - get_ospf(A1C, neighbors)
+  - get_ospf(A1C, interfaces)
 
 🔹 Proposed Fixes (Per Device):
-  - Setting OSPF hello-interval to default value on R2C's interface Ethernet0/1
+  - Removing passive-interface on A1C's Ethernet1/3 (toward C1C)
 
 🔹 Commands Used Upon User Approval:
-  interface Ethernet0/1
-   default ip ospf hello-interval
+  router ospf 1
+   no passive-interface Ethernet1/3
 
 🔹 Post-Fix State:
   - OSPF adjacency restored (FULL)

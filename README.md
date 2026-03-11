@@ -1,23 +1,26 @@
 # ✨ aiNOC
 
-[![Latest Release](https://img.shields.io/badge/version-4.5.0-blue.svg)](https://github.com/pdudotdev/aiNOC/releases/tag/4.5.0)
-[![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/aiNOC)](https://github.com/pdudotdev/aiNOCcommits/main/)
+**aiNOC:**<br/>
+[![Latest Release](https://img.shields.io/badge/version-5.0.0-blue.svg)](https://github.com/pdudotdev/aiNOC/releases/tag/5.0.0) [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/aiNOC)](https://github.com/pdudotdev/aiNOCcommits/main/)
 
+**Core Vendors:**<br/>
 ![Cisco IOS-XE](https://img.shields.io/badge/Cisco-IOS--XE-0176C1)
-![Arista EOS](https://img.shields.io/badge/Arista-EOS-2A64D4)
-![MikroTik RouterOS](https://img.shields.io/badge/MikroTik-RouterOS-2A3042)
 
-![Transports](https://img.shields.io/badge/Transports-555555)
-![SSH](https://img.shields.io/badge/SSH-2E8B57)
-![eAPI](https://img.shields.io/badge/eAPI-D4841A)
-![REST](https://img.shields.io/badge/REST-7B52AB)
+**Management:**<br/>
+![RESTCONF](https://img.shields.io/badge/RESTCONF-primary-2E8B57) ![CLI](https://img.shields.io/badge/CLI-fallback-A90000)
+
+**Extendable To:**<br/>
+![Arista EOS](https://img.shields.io/badge/Arista-EOS-2A64D4) ![Juniper JunOS](https://img.shields.io/badge/Juniper-JunOS-009A44) ![MikroTik RouterOS](https://img.shields.io/badge/MikroTik-RouterOS-2A3042) ![Aruba AOS-CX](https://img.shields.io/badge/Aruba-AOS--CX-FF6600) ![SONiC](https://img.shields.io/badge/SONiC-FRR-9B9BD5) ![VyOS](https://img.shields.io/badge/VyOS-VyOS-5B9BD5)
+
+**Extendable To:**<br/>
+![NETCONF](https://img.shields.io/badge/NETCONF-D4841A) ![REST](https://img.shields.io/badge/REST-7B52AB) ![gNMI](https://img.shields.io/badge/gNMI-2259B6) ![eAPI](https://img.shields.io/badge/eAPI-092991)
 
 ## 📖 **Table of Contents**
 - 📜 **aiNOC**
   - [🔭 Overview](#-overview)
   - [♻️ Repository Lifecycle](#️-repository-lifecycle)
   - [🍀 Here's a Quick Demo](#-heres-a-quick-demo)
-  - [⭐ What's New in v4.0](#-whats-new-in-v40)
+  - [⭐ What's New in v5.0](#-whats-new-in-v50)
   - [⚒️ Current Tech Stack](#️-current-tech-stack)
   - [📋 Supported Vendors](#-supported-vendors)
   - [🚛 Supported Transports](#️-supported-transports)
@@ -38,9 +41,10 @@ AI-based **network troubleshooting framework** for multi-vendor, multi-protocol,
 - [x] **Multi-vendor support**
 - [x] **Multi-protocol, L2/L3**
 - [x] **Multi-area/multi-AS**
-- [x] **SSH/eAPI/REST API**
-- [x] **15 MCP tools, 6 skills**
-- [x] **32 operational guardrails**
+- [x] **CLI/RESTCONF (core)**
+- [x] **NETCONF/REST/gNMI/eAPI (extensions)**
+- [x] **14 MCP tools, 4 skills**
+- [x] **33 operational guardrails**
 - [x] **Jira integration**
 
 ▫️ **Operating modes of aiNOC**:
@@ -75,8 +79,7 @@ Create `settings.json` under `.claude/`:
 ![arch](metadata/topology/ARCHv3.png)
 
 ## 🍀 Here's a Quick Demo
-- [x] See a [**DEMO HERE**](https://www.youtube.com/watch?v=oxSa25R6EgI) of v3.0.
-  - *Next video demo coming soon with v5.0*
+- [x] *Demo video for v5.0 coming soon*
 
 ## ♻️ Repository Lifecycle
 **New features** are being added periodically (vendors, protocols, integrations, etc.).
@@ -85,12 +88,12 @@ Create `settings.json` under `.claude/`:
 - [x] **Watch** and **Star** this repository
 
 **Current version**:
-- [x] **aiNOC v4.5**
+- [x] **aiNOC v5.0**
 
-## ⭐ What's New in v4.5
+## ⭐ What's New in v5.0
 - [x] See [**changelog.md**](changelog.md)
 
-## ⚒️ Current Tech Stack
+## ⚒️ Core Tech Stack
 
 | Tool |   |
 |------|---|
@@ -100,38 +103,53 @@ Create `settings.json` under `.claude/`:
 | Python | ✓ |
 | Scrapli | ✓ |
 | Genie | ✓ |
-| REST API | ✓ |
-| EOS eAPI | ✓ |
+| RESTCONF | ✓ |
 | Jira API | ✓ |
 | Vector | ✓ |
 | Ubuntu | ✓ |
-| VS Code | ✓ |
-| VirtualBox/VMware | ✓ |
+| VMware | ✓ |
 
 ## 📋 Supported Vendors
 
-| Vendor | Platform |
-|--------|----------|
-| Arista | EOS (cEOS) |
-| Cisco | IOS/IOS-XE (IOL) |
-| MikroTik | RouterOS |
+| Vendor | Platform | cli_style | Status |
+|--------|----------|-----------|--------|
+| Cisco | IOS/IOS-XE | `ios` | Core |
+| Arista | EOS | `eos` | On-Request |
+| Juniper | JunOS | `junos` | On-Request |
+| MikroTik | RouterOS | `routeros` | On-Request |
+| Aruba | AOS-CX | `aos` | On-Request |
+| SONiC | SONiC | `frr` | On-Request |
+| VyOS | VyOS | `vyos` | On-Request |
 
 ## 🚛 Supported Transports
 
-| Vendor | Transport |
-|--------|-----------|
-| Cisco IOS | Scrapli SSH |
-| Arista EOS | Arista eAPI |
-| MikroTik RouterOS | REST API |
+| Management | Devices | Tier | Status |
+|-----------|---------|------|--------|
+| RESTCONF (httpx) | Cisco IOS-XE | Primary | Core |
+| CLI (scrapli) | Cisco IOS/IOS-XE | Fallback | Core |
+| NETCONF | custom | — | On-Request |
+| REST API | custom | — | On-Request |
+| gNMI | custom | — | On-Request |
+| eAPI | Arista | — | On-Request |
 
 ## 🎓 Troubleshooting Scope
 
-| Category | Capabilities |
-|----------|-------------|
-| **OSPF** | Reference bandwidth · Point-to-point links · Passive interfaces · MD5 authentication · External type 1 routes · Default route injection · ABR route summarization · EIGRP ↔ OSPF redistribution · Prefix list filtering · Distribute list filtering · Area types: normal, stubby, totally NSSA |
-| **EIGRP** | Passive interfaces · MD5 authentication · Stub summary · OSPF ↔ EIGRP redistribution · Default metric via route maps |
-| **BGP** | eBGP dual-ISP · Default-originate · Prefix lists and route maps · Route reflectors and clients |
-| **Others** | Policy-Based Routing · IP SLA · MikroTik Netwatch · Arista Connectivity Monitor · NAT/PAT on ASBRs · Management APIs · Static routing · Syslog · NTP |
+| aiNOC Core |
+|----------|
+| **OSPF** |
+| **BGP**  | 
+| **Redistribution** | 
+| **Policy-based routing**|
+| **Route-maps, prefix lists** |
+| **NAT/PAT, access lists** |
+
+| aiNOC Custom |
+|----------|
+| **EIGRP** |
+| **HSRP** | 
+| **VRRP** |
+| **STP/MSTP** | 
+| *etc.* |
 
 ## 🛠️ Installation & Usage
 ▫️ **Step 1**:
@@ -175,12 +193,14 @@ Manage with:
 ▫️ **Step 5**:
 Check if **Watcher** and **Vector** are running:
 ```
+# Interactive mode
 sudo systemctl status vector
 python3 oncall/watcher.py
-ainoc.watcher — Watcher started. Monitoring /var/log/network.json for IP SLA Down events.
+# ainoc.watcher — Watcher started. Monitoring /var/log/network.json for IP SLA Down events.
 ```
 *or (if installed as a systemd service):*
 ```
+# Service mode
 sudo systemctl status vector
 sudo systemctl status oncall-watcher.service
 ```
@@ -188,17 +208,11 @@ sudo systemctl status oncall-watcher.service
 ## 🔄 Test Network Topology
 ▫️ **Network diagram**:
 
-![topology](metadata/topology/TOPOLOGY-v2.0.png)
-
-▫️ **Naming conventions:**
-- [x] **RXY** where:
-  - **R**: device type (router)
-  - **X**: device number id
-  - **Y**: vendor (A-Arista, C-Cisco, M-MikroTik, etc.)
+![topology](metadata/topology/TOPOLOGY-v5.0.png)
 
 ▫️ **Router configurations:**
 - [x] Please find my test lab's config files under the [**lab_configs**](https://github.com/pdudotdev/aiNOC/tree/main/lab_configs) directory
-- [x] They are the network's fallback configs for `containerlab redeploy -t lab.yml`
+- [x] They are the network's fallback configs for `containerlab redeploy -t AINOC-TOPOLOGY.yml`
 - [x] Default credentials: see **.env** file at [**.env.example**](.env.example)
 
 ## 📞 aiNOC Operating Modes
@@ -207,7 +221,7 @@ aiNOC runs as an **On-Call watcher** that monitors Vector's `/var/log/network.js
 
 ### How It Works
 
-1. Network devices track connectivity paths (Cisco IP SLA, Arista Connectivity Monitor, MikroTik Netwatch etc.)
+1. Network devices track connectivity paths (Cisco IP SLA — extensible to Arista Connectivity Monitor, Juniper RPM probes, MikroTik Netwatch via module builds)
 2. Failures are logged to Syslog → **Vector** parses and writes to `/var/log/network.json`
 3. **`oncall/watcher.py`** detects the failure, opens a Jira ticket, and invokes a Claude agent session
 4. Agent follows structured troubleshooting (`CLAUDE.md` + `/skills` + MCP tools) → identifies root cause → proposes fix
@@ -228,13 +242,12 @@ aiNOC runs as an **On-Call watcher** that monitors Vector's `/var/log/network.js
 Only one agent session runs at a time. Concurrent SLA failures during an active session are **deferred** and presented for review after the current case closes. A drain mechanism ensures no duplicate event processing. A process-level lock file (`oncall.lock`) with stale-PID detection prevents duplicate watcher instances.
 
 ## ⬆️ Planned Upgrades
-Expected in version v5.0:
-- [ ] Fresh, enterprise-focused topology
-- [ ] New vendors (Juniper, Aruba, SONiC)
-- [ ] Improved reliability and security
+- [ ] New protocols and services
+- [ ] Performance-based SLAs
+- [ ] Digital twin feature
 
 ## 🌱 AI Automation 101
-If you're completely new to Network Automation using AI & MCP, then you may want to [**start here**](https://www.udemy.com/course/mcp-server/?referralCode=D62613A8194D2D915B55) before moving on.
+If you're completely new to Network Automation using AI & MCP, then you may want to [**start here**](https://www.udemy.com/course/mcp-server/?referralCode=D62613A8194D2D915B55).
 
 ## 📄 Disclaimer
 You are responsible for defining your own troubleshooting methodologies and context files, as well as building your own test environment and meeting the necessary conditions (e.g., RAM/vCPU, router OS images, Claude subscription/API key, etc.).

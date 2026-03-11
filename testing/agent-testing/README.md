@@ -5,11 +5,11 @@ Structured test framework for validating aiNOC agent behavior after codebase cha
 ## Prerequisites
 
 ```bash
-cd /home/mcp/mcp-project
+cd /home/mcp/aiNOC
 pip install -r requirements.txt
 ```
 
-Credentials are loaded from `/home/mcp/mcp-project/.env`:
+Credentials are loaded from `/home/mcp/aiNOC/.env`:
 ```
 ROUTER_USERNAME=admin
 ROUTER_PASSWORD=admin
@@ -39,19 +39,24 @@ chmod +x run_tests.sh
 | UT-002 | unit/test_platform_map.py | PLATFORM_MAP command mapping per cli_style |
 | UT-003 | unit/test_drain_mechanism.py | tail_follow drain/EOF-seek logic |
 | UT-004 | unit/test_input_validation.py | Literal enum rejection, ShowCommand read-only enforcement |
-| UT-005 | unit/test_cache.py | Bounded LRU eviction, TTL expiry, cache hit/miss |
-| UT-006 | unit/test_command_validation.py | FORBIDDEN CLI list, RouterOS JSON path/method validation |
+| UT-006 | unit/test_command_validation.py | FORBIDDEN CLI list, rollback advisory |
 | UT-007 | unit/test_maintenance_window.py | check_maintenance_window inside/outside window |
-| UT-008 | unit/test_risk_assessment.py | Risk level logic (low/medium/high) |
+| UT-008 | unit/test_risk_assessment.py | Risk level logic (low/medium/high), keyword/device/path escalation |
 | UT-009 | unit/test_syslog_sanitize.py | Syslog message sanitization |
+| UT-010 | unit/test_transport_dispatch.py | ActionChain 2-tier fallback (RESTCONF→SSH), _transport_used tag, asyncssh routing |
+| UT-011 | unit/test_restconf_unit.py | RESTCONF executor: HTTP 200/4xx/5xx/timeout, URL construction |
+| UT-013 | unit/test_ssh_unit.py | SSH executor: Scrapli send_command, Genie fallback, push_ssh |
+| UT-014 | unit/test_config_push.py | push_config: maintenance window, on_call bypass, forbidden commands, rollback |
+| UT-015 | unit/test_tool_layer.py | Tool dispatch: protocol/routing/operational tools, ping/traceroute CLI enforcement |
+| UT-016 | unit/test_jira_tools.py | Jira tools: add_comment/resolve_issue success/error/no-key paths |
 
 ### Integration Tests (read-only, real devices)
 | ID | File | Description |
 |----|------|-------------|
 | IT-001 | integration/test_mcp_connectivity.py | MCP tool reachability (requires lab, skip with NO_LAB=1) |
 | IT-002 | integration/test_watcher_events.py | Watcher event parsing without agent spawn (no lab required) |
-| IT-003 | integration/test_mcp_tools.py | Full MCP tool coverage — all vendors, cache, push_config CRUD (requires lab, skip with NO_LAB=1) |
-| IT-004 | integration/test_transport.py | SSH/eAPI/REST transport layer: structured output, cache, timeouts (requires lab, skip with NO_LAB=1) |
+| IT-003 | integration/test_mcp_tools.py | Full MCP tool coverage — all transports (RESTCONF/SSH), push_config CRUD (requires lab, skip with NO_LAB=1) |
+| IT-004 | integration/test_transport.py | SSH/RESTCONF transport layer: structured output, _transport_used tag, timeouts (requires lab, skip with NO_LAB=1) |
 
 ## End-to-End Testing
 

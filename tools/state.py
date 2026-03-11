@@ -42,7 +42,8 @@ async def check_maintenance_window(params: EmptyInput) -> dict:
     Note: Maintenance policy is read-only and managed outside automation.
     """
     if not os.path.exists(_POLICY_FILE):
-        return {"allowed": True, "reason": "No maintenance policy defined"}
+        log.error("check_maintenance_window: MAINTENANCE.json not found — blocking changes (fail-closed)")
+        return {"allowed": False, "reason": "MAINTENANCE.json not found — cannot determine allowed window"}
 
     with open(_POLICY_FILE) as f:
         policy = json.load(f)
@@ -121,11 +122,11 @@ async def assess_risk(params: RiskInput) -> dict:
         log.warning("assess_risk: could not load paths.json: %s", e)
 
     # ── Command content ───────────────────────────────────────────────────────
-    if any(k in cmd_text for k in ("router ", "ospf", "bgp", "isis", "eigrp")):
+    if any(k in cmd_text for k in ("router ", "ospf", "bgp", "isis")):
         risk = "high"
         reasons.append("Touches routing control plane")
 
-    if any(k in cmd_text for k in ("shutdown", "no shutdown")):
+    if "shutdown" in cmd_text and "no shutdown" not in cmd_text:
         risk = "high"
         reasons.append("Interface disruption possible")
 

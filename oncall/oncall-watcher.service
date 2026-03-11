@@ -1,20 +1,20 @@
 [Unit]
 Description=aiNOC On-Call Watcher
-Documentation=file:/home/mcp/mcp-project/README.md
+Documentation=file:/home/mcp/aiNOC/README.md
 After=network.target
 Wants=vector.service
 
 [Service]
 Type=simple
 User=mcp
-WorkingDirectory=/home/mcp/mcp-project
-ExecStart=/usr/bin/python3 /home/mcp/mcp-project/oncall/watcher.py --service
+WorkingDirectory=/home/mcp/aiNOC
+ExecStart=/home/mcp/aiNOC/mcp/bin/python3 /home/mcp/aiNOC/oncall/watcher.py --service
 Restart=on-failure
 RestartSec=10
 
 # Hardening
 ProtectSystem=strict
-ReadWritePaths=/home/mcp/mcp-project /var/log /tmp
+ReadWritePaths=/home/mcp/aiNOC /var/log /tmp
 ProtectHome=false
 
 # Logging — integrates with journalctl -u oncall-watcher
@@ -22,8 +22,11 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=ainoc-watcher
 
-# Environment — override or add variables as needed
-# EnvironmentFile=/home/mcp/mcp-project/.env
+# Environment — .env is loaded by Python's load_dotenv() at runtime.
+# Do NOT use systemd EnvironmentFile here: systemd does not strip inline
+# comments (KEY=val # comment), which corrupts values that python-dotenv
+# handles correctly.
+# EnvironmentFile=/home/mcp/aiNOC/.env
 
 [Install]
 WantedBy=multi-user.target

@@ -4,69 +4,55 @@
   "get_ospf": {
     "platform_map_section": "ospf",
     "queries": {
-      "ios":      ["neighbors", "database", "borders", "config", "interfaces", "details"],
-      "eos":      ["neighbors", "database", "borders", "config", "interfaces", "details"],
-      "routeros": ["neighbors", "database", "interfaces", "config"]
+      "ios":          ["neighbors", "database", "borders", "config", "interfaces", "details"],
+      "ios_restconf": ["neighbors", "database", "borders", "config", "interfaces", "details"]
     }
-  },
-
-  "get_eigrp": {
-    "platform_map_section": "eigrp",
-    "queries": {
-      "ios":      ["neighbors", "topology", "config", "interfaces"],
-      "eos":      null,
-      "routeros": null
-    },
-    "notes": "EIGRP is IOS-only. Not supported on eos or routeros."
   },
 
   "get_bgp": {
     "platform_map_section": "bgp",
     "queries": {
-      "ios":      ["summary", "table", "config", "neighbors"],
-      "eos":      ["summary", "table", "config", "neighbors"],
-      "routeros": ["summary", "table", "config", "neighbors"]
+      "ios":          ["summary", "table", "config", "neighbors"],
+      "ios_restconf": ["summary", "table", "config", "neighbors"]
     }
   },
 
   "get_routing": {
     "platform_map_section": "routing_table",
     "queries": {
-      "ios":      ["ip_route"],
-      "eos":      ["ip_route"],
-      "routeros": ["ip_route"]
+      "ios":          ["ip_route"],
+      "ios_restconf": ["ip_route"]
     },
-    "notes": "Pass prefix=<ip> for targeted lookup, omit for full table."
+    "notes": "Pass prefix=<ip> for targeted lookup, omit for full table. iOS asyncssh CLI: prefix appended to command string."
   },
 
   "get_routing_policies": {
     "platform_map_section": "routing_policies",
     "queries": {
-      "ios":      ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists", "nat_pat"],
-      "eos":      ["redistribution", "route_maps", "prefix_lists", "access_lists", "nat_pat"],
-      "routeros": ["prefix_lists", "route_maps", "nat_pat"]
-    },
-    "notes": "policy_based_routing is ios-only. nat_pat is supported on all platforms but should only be checked on NAT_EDGE devices (R2C, R3C, R18M, R19M) after ruling out routing issues."
+      "ios":          ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists"],
+      "ios_restconf": ["redistribution", "route_maps", "prefix_lists", "policy_based_routing", "access_lists"]
+    }
   },
 
   "get_interfaces": {
     "platform_map_section": "interfaces",
     "queries": {
-      "ios":      ["interface_status"],
-      "eos":      ["interface_status"],
-      "routeros": ["interface_status"]
+      "ios":          ["interface_status"],
+      "ios_restconf": ["interface_status"]
     }
   },
 
   "ping": {
     "platform_map_section": "tools.ping",
     "queries": null,
-    "notes": "Params: device, destination. Optional: source."
+    "notes": "Params: device, destination. Optional: source, vrf. All devices use SSH CLI."
   },
 
   "traceroute": {
     "platform_map_section": "tools.traceroute",
     "queries": null,
-    "notes": "Params: device, destination. Optional: source."
-  }
+    "notes": "Params: device, destination. Optional: source, vrf. All devices use SSH CLI."
+  },
+
+  "_vrf_note": "All protocol/routing/operational tools accept an optional vrf parameter. If omitted, the global routing table is used. The vrf parameter is available for future L3VPN deployments. IOS asyncssh CLI tools use dual-entry format; c8000v RESTCONF tools use URL paths."
 }

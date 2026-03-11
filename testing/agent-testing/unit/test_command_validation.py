@@ -1,7 +1,6 @@
-"""Unit tests for validate_commands() — FORBIDDEN CLI list and RouterOS JSON validation."""
-import json
+"""Unit tests for validate_commands() — FORBIDDEN CLI list validation."""
 import pytest
-from tools.config import validate_commands, FORBIDDEN, FORBIDDEN_REST_PATHS, VALID_REST_PUSH_METHODS
+from tools.config import validate_commands, FORBIDDEN
 
 
 # ── FORBIDDEN CLI commands ─────────────────────────────────────────────────────
@@ -15,11 +14,10 @@ FORBIDDEN_CLI_CASES = [
     "boot system flash",
     "crypto key zeroize rsa",
     "no router ospf 1",
-    "no router eigrp 10",
+    "no router bgp 65000",
     "default interface Ethernet0/1",
     "clear ip ospf process",
     "clear ip bgp *",
-    "clear ip eigrp neighbors",
     "clear ip route *",
     "debug all",
     # Case-insensitive matching
@@ -58,55 +56,6 @@ def test_safe_cli_command_passes(cmd):
     validate_commands([cmd])  # must not raise
 
 
-# ── RouterOS JSON: forbidden paths ────────────────────────────────────────────
-
-@pytest.mark.parametrize("path", sorted(FORBIDDEN_REST_PATHS))
-def test_routeros_forbidden_path_blocked(path):
-    """RouterOS REST actions targeting system-critical paths must be blocked.
-    Paths like /rest/system/reboot or /rest/user could take the device offline.
-    """
-    action = json.dumps({"method": "PUT", "path": path, "body": {}})
-    with pytest.raises(ValueError, match="Forbidden REST path"):
-        validate_commands([action])
-
-
-def test_routeros_safe_path_passes():
-    """A PATCH to a non-forbidden RouterOS OSPF path must pass validate_commands().
-    Confirms the forbidden-path set does not block valid OSPF configuration changes.
-    """
-    action = json.dumps({
-        "method": "PATCH",
-        "path": "/rest/routing/ospf/instance/abc123",
-        "body": {"hello-interval": "10"},
-    })
-    validate_commands([action])  # must not raise
-
-
-# ── RouterOS JSON: invalid HTTP methods ───────────────────────────────────────
-
-@pytest.mark.parametrize("method", ["GET", "POST", "HEAD", "OPTIONS"])
-def test_routeros_invalid_method_blocked(method):
-    """RouterOS REST actions with read-only or unsupported HTTP methods must be blocked.
-    GET belongs in run_show; POST is unsupported on RouterOS 7.x for configuration.
-    """
-    action = json.dumps({"method": method, "path": "/rest/routing/ospf/instance"})
-    with pytest.raises(ValueError, match="Invalid REST method"):
-        validate_commands([action])
-
-
-@pytest.mark.parametrize("method", sorted(VALID_REST_PUSH_METHODS))
-def test_routeros_valid_method_passes(method):
-    """RouterOS REST actions with valid push methods (PUT/PATCH/DELETE) must pass.
-    These are the only methods allowed for RouterOS configuration changes.
-    """
-    action = json.dumps({
-        "method": method,
-        "path": "/rest/routing/ospf/instance/abc123",
-        "body": {},
-    })
-    validate_commands([action])  # must not raise
-
-
 # ── Mixed batch: one forbidden stops the whole batch ──────────────────────────
 
 def test_forbidden_in_batch_raises():
@@ -143,15 +92,6 @@ def test_rollback_adds_no_prefix():
     assert result == ["no ip ospf dead-interval 40"]
 
 
-def test_rollback_routeros_advisory():
-    """RouterOS REST commands must produce a manual-action advisory, not an inverted command.
-    RouterOS PATCH/PUT rollback requires the original resource ID which may not be known.
-    """
-    action = json.dumps({"method": "PATCH", "path": "/rest/routing/ospf/instance/abc"})
-    result = _generate_rollback_advisory([action])
-    assert result[0].startswith("# RouterOS PATCH rollback requires manual action")
-
-
 def test_rollback_batch():
     """A batch of commands must produce a matching batch of rollback advisories.
     Each command is independently inverted, preserving order.
@@ -160,3 +100,65 @@ def test_rollback_batch():
     result = _generate_rollback_advisory(cmds)
     assert result[0] == "no ip ospf hello-interval 5"
     assert result[1] == "ip ospf dead-interval"
+
+
+# ── New FORBIDDEN patterns (v5.0 expansion) ────────────────────────────────────
+
+NEW_FORBIDDEN_CASES = [
+    # Configuration persistence
+    "copy running-config startup-config",
+    "copy run start",
+    "copy run flash:backup.cfg",
+    "write memory",
+    "write mem",
+    # Wholesale config replacement
+    "configure replace flash:backup",
+    # Credential and AAA manipulation
+    "username admin privilege 15 secret newpass",
+    "no username admin",
+    "enable secret newpassword",
+    "enable password cleartext",
+    "snmp-server community public RO",
+    "snmp-server community private RW",
+    # Crypto key operations
+    "crypto key generate rsa modulus 2048",
+    "crypto key zeroize rsa",
+    # Management lockout
+    "transport input none",
+    # Case-insensitive variants
+    "COPY RUN START",
+    "Write Memory",
+    "USERNAME testuser SECRET pass",
+    "ENABLE SECRET newpass",
+    "SNMP-SERVER COMMUNITY public RO",
+]
+
+
+@pytest.mark.parametrize("cmd", NEW_FORBIDDEN_CASES)
+def test_new_forbidden_patterns_blocked(cmd):
+    """Verify that v5.0-added dangerous CLI patterns are rejected by validate_commands()."""
+    with pytest.raises(ValueError, match="Forbidden command"):
+        validate_commands([cmd])
+
+
+# ── Commands that look similar but must NOT be blocked ────────────────────────
+
+NEW_SAFE_CASES = [
+    "copy tftp: running-config",          # copy TO running-config is safe (write is safe)
+    "show running-config",                 # read-only
+    "ip ospf hello-interval 5",
+    "no ip ospf hello-interval",
+    "router ospf 1",                       # "no router" is forbidden; adding router proc is fine
+    "ip route 0.0.0.0 0.0.0.0 Null0",
+    "interface GigabitEthernet1",
+    "no shutdown",
+    "description This WR port is enabled",  # description with WR substring
+]
+
+
+@pytest.mark.parametrize("cmd", NEW_SAFE_CASES)
+def test_new_safe_commands_pass(cmd):
+    """Commands that resemble blocked patterns but are operationally valid must pass."""
+    validate_commands([cmd])  # must not raise
+
+

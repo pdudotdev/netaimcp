@@ -29,9 +29,9 @@ After every On-Call session, the agent:
 
 Defines the big-picture architecture:
 
-- Area Border Routers (ABRs)  
-- EIGRP / OSPF / BGP speakers  
-- Autonomous Systems  
+- Area Border Routers (ABRs)
+- OSPF / BGP speakers
+- Autonomous Systems
 - OSPF areas  
 - Peering relationships  
 - NAT design expectations  
@@ -49,8 +49,8 @@ It helps answer: *“Is this device supposed to be doing X?”*
 Stores management details for every device:
 
 - SSH / API host  
-- CLI style (Cisco IOS, Arista EOS, MikroTik RouterOS)  
-- Transport method (SSH, HTTPS, REST)  
+- CLI style (Cisco IOS — all devices)
+- Transport method (asyncssh for IOL, restconf for c8000v)
 - Physical location  
 
 When you want to talk to a device, this file tells the tools **how to connect**.
@@ -65,16 +65,14 @@ Acts as the translator between human intent and vendor-specific commands.
 
 Example:
 ```
-get_ospf(device="R3C", query="neighbors")
+get_ospf(device="A1C", query="neighbors")
 ```
 
 This file converts that generic call into:
-- The correct Cisco IOS CLI command  
-- Or Arista EOS syntax  
-- Or MikroTik RouterOS command  
-- Or the proper REST API call  
+- A plain Cisco IOS CLI string (asyncssh devices: A1C, A2C, IAN, IBN)
+- Or an `ActionChain` (2-tier: RESTCONF → SSH) for c8000v devices
 
-It lets you forget about vendor dialect differences.
+It lets you forget about transport differences within the same vendor.
 
 ---
 
@@ -97,7 +95,7 @@ Prevents unnecessary fallback commands.
 - Input parameters for every MCP tool are defined as Pydantic models in `input_models/models.py`.
 - Each model field includes a `description=` annotation — these are the authoritative parameter docs.
 - Valid `query` values per tool per vendor are mapped in `mcp_tool_map.json`.
-- Snapshot profile values (`ospf`, `stp`) and risk scoring rules are documented in `metadata/about/guardrails.md`.
+- Risk scoring rules are documented in `metadata/about/guardrails.md`.
 
 ---
 
@@ -123,12 +121,10 @@ Prevents accidental changes during critical business hours.
 
 Each file contains a symptom-first decision tree for:
 
-- OSPF  
-- EIGRP  
-- BGP  
-- Redistribution  
-- Routing policy  
-- On-Call mode  
+- OSPF
+- BGP
+- Routing policy
+- On-Call mode
 
 Written in plain language with:
 - Checklists  
@@ -166,7 +162,7 @@ Contains:
 
 - 6-principle troubleshooting methodology
 - On-Call workflow (primary mode)
-- Complete MCP tool list
+- Complete MCP tool list (14 tools)
 - Lessons curation process
 - Case management workflow
 - 15 common pitfalls to avoid
@@ -199,18 +195,16 @@ Imports and registers all tools from the decomposed module structure:
 MCPServer.py          — tool registration and mcp.run()
 transport/
     __init__.py       — transport dispatcher (execute_command)
-    ssh.py            — Scrapli SSH (Cisco IOS-XE)
-    eapi.py           — aiohttp eAPI (Arista EOS)
-    rest.py           — aiohttp REST (MikroTik RouterOS)
-    pool.py           — session pool management
+    ssh.py            — Scrapli SSH (Cisco IOS-XE asyncssh: A1C, A2C, IAN, IBN)
+    restconf.py       — httpx RESTCONF (Cisco c8000v primary transport)
+    pool.py           — session pool stub (no-op)
 tools/
-    protocol.py       — get_ospf, get_eigrp, get_bgp
+    protocol.py       — get_ospf, get_bgp
     routing.py        — get_routing, get_routing_policies
     operational.py    — get_interfaces, ping, traceroute, run_show
     config.py         — push_config, validate_commands, FORBIDDEN
     state.py          — get_intent, check_maintenance_window, assess_risk
     jira_tools.py     — jira_add_comment, jira_resolve_issue
-core/cache.py         — bounded LRU cache (max 256 entries)
 core/inventory.py     — device inventory loader (NETWORK.json)
 core/settings.py      — credentials and transport configuration
 core/logging_config.py — JSONFormatter, ainoc.* logger hierarchy

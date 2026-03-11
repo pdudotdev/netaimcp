@@ -16,7 +16,6 @@ import shutil
 import time
 import subprocess
 import signal
-import sys
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,21 +39,14 @@ CLAUDE_BIN = "/home/mcp/.local/bin/claude"
 # Module-level logger — handlers are configured by setup_watcher_logging() in main()
 _wlog = logging.getLogger("ainoc.watcher")
 
-# SLA Down patterns (multi-vendor)
+# SLA Down patterns (Cisco IOS/IOS-XE only)
 SLA_DOWN_RE = re.compile(
     r'(?:'
     # Cisco IOS/XE: BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down
     r'%?TRACK-\d+-STATE:.*ip\s+sla.*reachability\s+\S+\s+->\s+Down'
     r'|'
-    # Cisco/Arista alternate phrasing
+    # Cisco alternate phrasing
     r'ip\s+sla\s+\d+.*(?:changed.*state|transition).*(?:up|reachable).*(?:to|->)\s*down'
-    r'|'
-    # MikroTik Netwatch: both bracket format (netwatch,info event down [ host: ... ])
-    # and simple format (netwatch event down host=x.x.x.x)
-    r'netwatch\S*\s+event\s+down'
-    r'|'
-    # Arista EOS ConnectivityMonitor: %CONNECTIVITYMON-5-HOST_UNREACHABLE: Host ... unreachable
-    r'%CONNECTIVITYMON-\d+-HOST_UNREACHABLE'
     r')',
     re.IGNORECASE
 )
@@ -65,15 +57,8 @@ SLA_UP_RE = re.compile(
     # Cisco IOS/XE: %TRACK-6-STATE: 1 ip sla 1 reachability Down -> Up
     r'%?TRACK-\d+-STATE:.*ip\s+sla.*reachability\s+\S+\s+->\s+Up'
     r'|'
-    # Cisco/Arista alternate phrasing
+    # Cisco alternate phrasing
     r'ip\s+sla\s+\d+.*(?:changed.*state|transition).*(?:down|unreachable).*(?:to|->)\s*(?:up|reachable)'
-    r'|'
-    # MikroTik Netwatch: both bracket format (netwatch,info event up [ host: ... ])
-    # and simple format (netwatch event up host=x.x.x.x)
-    r'netwatch\S*\s+event\s+up'
-    r'|'
-    # Arista EOS ConnectivityMonitor: %CONNECTIVITYMON-5-HOST_REACHABLE
-    r'%CONNECTIVITYMON-\d+-HOST_REACHABLE'
     r')',
     re.IGNORECASE
 )
@@ -107,8 +92,19 @@ def is_sla_down_event(msg):
 
 
 def sanitize_syslog_msg(msg: str, max_length: int = 500) -> str:
-    """Strip non-printable characters and truncate syslog message to prevent prompt injection."""
-    return "".join(ch for ch in msg if ch.isprintable())[:max_length]
+    """Sanitize a syslog message to reduce prompt injection risk.
+
+    Strips non-printable characters (null bytes, control chars, newlines) and
+    collapses multiple whitespace sequences to a single space.
+
+    Note: This is a defense-in-depth measure. Printable ASCII prompt injection
+    (e.g. "IGNORE PREVIOUS INSTRUCTIONS") cannot be sanitized away — the
+    prompt delimiter markers and model instructions are the primary mitigation.
+    """
+    # Strip non-printable characters, then collapse multiple whitespace to one space
+    clean = "".join(ch for ch in msg if ch.isprintable())
+    clean = " ".join(clean.split())
+    return clean[:max_length]
 
 
 def is_lock_stale():
@@ -157,6 +153,8 @@ def scan_for_deferred_events(trigger_event, session_start, session_end, device_m
     trigger_key = (trigger_event.get("ts"), trigger_event.get("device"), trigger_event.get("msg")) if trigger_event else None
     deferred = []
     seen = set()  # Deduplicate by (device, msg) to avoid noise from repeated SLA polls
+    if trigger_event:
+        seen.add((trigger_event.get("device", "?"), trigger_event.get("msg", "")))
     try:
         with open(LOG_FILE) as f:
             for line in f:
@@ -197,6 +195,8 @@ def scan_for_recovery_events(trigger_event, session_start, session_end, device_m
     """
     trigger_key = (trigger_event.get("ts"), trigger_event.get("device"), trigger_event.get("msg")) if trigger_event else None
     seen = set()  # Deduplicate by (device, msg) to avoid noise from repeated SLA polls
+    if trigger_event:
+        seen.add((trigger_event.get("device", "?"), trigger_event.get("msg", "")))
     try:
         with open(LOG_FILE) as f:
             for line in f:
@@ -409,9 +409,11 @@ def invoke_deferred_review(device_map, service=False):
     # Build a self-contained prompt — no reliance on session closure steps
     lines = []
     for i, e in enumerate(events, 1):
-        name = e.get("device_name", e.get("device", "?"))
-        ip   = e.get("device", "?")
-        lines.append(f"  {i}. {name} ({ip}): {e.get('msg', '')} (at {e.get('ts', '')})")
+        name = sanitize_syslog_msg(e.get("device_name", e.get("device", "?")), max_length=64)
+        ip   = sanitize_syslog_msg(e.get("device", "?"), max_length=64)
+        msg  = sanitize_syslog_msg(e.get("msg", ""), max_length=200)
+        ts   = sanitize_syslog_msg(e.get("ts", ""), max_length=64)
+        lines.append(f"  {i}. {name} ({ip}): {msg} (at {ts})")
     event_list = "\n".join(lines)
 
     prompt = (
@@ -532,6 +534,12 @@ def parse_args():
 def main(service=False):
     """Main watcher loop."""
     setup_watcher_logging(WATCHER_LOG)
+
+    from core.jira_client import _is_configured as jira_configured
+    if jira_configured():
+        _wlog.info("Jira integration: ENABLED (project: %s)", os.getenv("JIRA_PROJECT_KEY", "?"))
+    else:
+        _wlog.warning("Jira integration: DISABLED — set JIRA_* variables in .env")
 
     if service:
         if not shutil.which("tmux"):

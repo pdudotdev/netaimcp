@@ -8,7 +8,7 @@ Run this checklist after any significant change to `MCPServer.py`, `oncall/watch
 | 1 | All unit tests pass | — | `./run_tests.sh unit` |
 | 2 | Integration tests pass (lab required) | — | `./run_tests.sh integration` |
 | 3 | Full On-Call pipeline (passive-interface) | 1 | OC-001 Primary |
-| 4 | Watcher event filtering and recovery logging | 2 | WB-001 – WB-004 |
+| 4 | Service mode (tmux session, operator notification, deferred queue) | 2 | WB-004 |
 
 **NOTE:** On-Call cases are documented as Jira tickets (see Jira project SUP).
 
@@ -20,13 +20,18 @@ Run this checklist after any significant change to `MCPServer.py`, `oncall/watch
 |-----------|----------------|
 | `test_drain_mechanism.py` | tail_follow drain flag and line-yield logic |
 | `test_platform_map.py` | PLATFORM_MAP command lookups for all vendors/queries |
-| `test_sla_patterns.py` | SLA_DOWN_RE and SLA_UP_RE regex matching (all vendor formats) |
-| `test_input_validation.py` | Literal enum rejection, ShowCommand read-only enforcement |
-| `test_cache.py` | Bounded LRU eviction, TTL expiry, cache hit/miss |
-| `test_command_validation.py` | FORBIDDEN CLI list, RouterOS JSON path/method validation, rollback advisory |
+| `test_sla_patterns.py` | SLA_DOWN_RE and SLA_UP_RE regex matching (Cisco IOS format) |
+| `test_input_validation.py` | Literal enum rejection, ShowCommand read-only enforcement (CLI/RESTCONF) |
+| `test_command_validation.py` | FORBIDDEN CLI list, rollback advisory |
 | `test_maintenance_window.py` | check_maintenance_window inside/outside window; push_config blocked outside; on_call bypass |
-| `test_risk_assessment.py` | Risk scoring: role/SLA-path/keyword/device-count escalation |
+| `test_risk_assessment.py` | Risk scoring: role/SLA-path/keyword/device-count escalation; no-shutdown exclusion |
 | `test_syslog_sanitize.py` | sanitize_syslog_msg: non-printable stripping, truncation at 500 chars |
+| `test_transport_dispatch.py` | ActionChain 2-tier fallback (RESTCONF→SSH), _transport_used tag, asyncssh routing |
+| `test_restconf_unit.py` | RESTCONF executor: HTTP 200/4xx/5xx/timeout, URL construction |
+| `test_ssh_unit.py` | SSH executor: Scrapli send_command, Genie parse fallback, push_ssh |
+| `test_config_push.py` | push_config: maintenance window guardrail, on_call bypass, forbidden commands, rollback |
+| `test_tool_layer.py` | Tool dispatch: get_ospf/bgp/routing/interfaces, ping/traceroute always CLI, run_show guard |
+| `test_jira_tools.py` | jira_add_comment / jira_resolve_issue: success, exception handling, unconfigured skip |
 
 **Integration test coverage (requires running lab):**
 
@@ -34,7 +39,7 @@ Run this checklist after any significant change to `MCPServer.py`, `oncall/watch
 |-----------|----------------|
 | `test_mcp_connectivity.py` | Basic device reachability via MCP tools |
 | `test_mcp_tools.py` | All protocol/routing/operational tools against live devices |
-| `test_transport.py` | SSH/eAPI/REST transport layer: structured output, cache hit/miss, timeout |
+| `test_transport.py` | SSH/RESTCONF (Cisco) transport layer: structured output, _transport_used, timeout |
 | `test_watcher_events.py` | Watcher helpers: event detection, lock management, deferred scan |
 
 ---

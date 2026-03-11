@@ -1,9 +1,8 @@
 """
 IT-003 — Full MCP Tool Coverage
 
-Ports testing/tool_tests.py to pytest. Verifies connectivity and tool correctness
-for all three platform types (IOS, EOS, RouterOS) and validates cache behavior.
-Includes push_config CRUD tests (loopback create/verify/delete) per vendor.
+Verifies connectivity and tool correctness for all platform types
+(IOS asyncssh, IOS RESTCONF/SSH). Includes push_config CRUD tests per transport.
 
 Requires live device access.
 """
@@ -12,6 +11,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,13 +28,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 from transport          import execute_command
-from tools.protocol     import get_ospf, get_eigrp, get_bgp
+from tools.protocol     import get_ospf, get_bgp
 from tools.routing      import get_routing, get_routing_policies
 from tools.operational  import get_interfaces, ping, traceroute, run_show
 from tools.config       import push_config
 from input_models.models import (
     OspfQuery,
-    EigrpQuery,
     BgpQuery,
     InterfacesQuery,
     RoutingQuery,
@@ -46,22 +45,20 @@ from input_models.models import (
 )
 
 
-# ── device constants (mirror tool_tests.py) ───────────────────────────────────
+# ── device constants ──────────────────────────────────────────────────────────
 
-IOS1 = "R3C"
-IOS2 = "R5C"
-IOS3 = "R8C"
+IOS_SSH1 = "A1C"    # Cisco IOS-XE IOL asyncssh (Access)
+IOS_SSH2 = "A2C"    # Cisco IOS-XE IOL asyncssh (Access)
+IOS_SSH3 = "IAN"    # Cisco IOS-XE IOL asyncssh (ISP A)
 
-EOS1 = "R1A"
-EOS2 = "R6A"
-EOS3 = "R7A"
+IOS_RC1  = "E1C"    # Cisco c8000v RESTCONF (Edge)
+IOS_RC2  = "E2C"    # Cisco c8000v RESTCONF (Edge)
 
-ROS1 = "R18M"
-ROS2 = "R19M"
-ROS3 = "R20M"
+RC1      = "C1C"    # Cisco c8000v RESTCONF (Core 1, ABR)
+RC2      = "C2C"    # Cisco c8000v RESTCONF (Core 2, ABR)
 
 
-# ── results collection ───────────────────────────────────────────────────────
+# ── results collection ────────────────────────────────────────────────────────
 
 RESULTS: list[dict] = []
 RESULTS_FILE = Path(__file__).parent / "test_mcp_tools_results.md"
@@ -145,162 +142,142 @@ def run(coro):
 
 # ── IT-003a: platform connectivity ────────────────────────────────────────────
 
-def test_connectivity_ios():
-    """IT-003a-1: SSH to Cisco IOS (R3C) — show version."""
-    result = run(execute_command(IOS1, "show version"))
-    record("IT-003a: Platform Connectivity", "test_connectivity_ios", IOS1, "SSH", result)
-    assert result, "Expected non-empty result from execute_command(R3C)"
+def test_connectivity_ios_ssh():
+    """IT-003a-1: asyncssh to Cisco IOS-XE IOL (A1C) — show version."""
+    result = run(execute_command(IOS_SSH1, "show version"))
+    record("IT-003a: Platform Connectivity", "test_connectivity_ios_ssh", IOS_SSH1, "asyncssh", result)
+    assert result, f"Expected non-empty result from execute_command({IOS_SSH1})"
     text = str(result)
     assert "version" in text.lower(), f"Expected version info, got: {text[:200]}"
 
 
-def test_connectivity_eos():
-    """IT-003a-2: eAPI to Arista EOS (R1A) — show version."""
-    result = run(execute_command(EOS1, "show version"))
-    record("IT-003a: Platform Connectivity", "test_connectivity_eos", EOS1, "eAPI", result)
-    assert result, "Expected non-empty result from execute_command(R1A)"
-    text = str(result)
-    assert "version" in text.lower(), f"Expected version info, got: {text[:200]}"
+def test_connectivity_restconf_core1():
+    """IT-003a-2: RESTCONF to Cisco c8000v (C1C) — get interfaces."""
+    from platforms.platform_map import get_action
+    device = {"cli_style": "ios", "transport": "restconf", "host": RC1}
+    action = get_action(device, "interfaces", "interface_status")
+    result = run(execute_command(RC1, action))
+    record("IT-003a: Platform Connectivity", "test_connectivity_restconf_core1", RC1, "RESTCONF", result)
+    assert result, f"Expected non-empty result from execute_command({RC1})"
 
 
-def test_connectivity_ros():
-    """IT-003a-3: REST to MikroTik RouterOS (R18M) — GET /rest/ip/route."""
-    action = {"method": "GET", "path": "/rest/ip/route"}
-    result = run(execute_command(ROS1, action))
-    record("IT-003a: Platform Connectivity", "test_connectivity_ros", ROS1, "REST", result)
-    assert result, "Expected non-empty result from execute_command(R18M)"
+def test_connectivity_restconf_edge():
+    """IT-003a-3: RESTCONF to Cisco c8000v (E1C) — get interfaces."""
+    from platforms.platform_map import get_action
+    device = {"cli_style": "ios", "transport": "restconf", "host": IOS_RC1}
+    action = get_action(device, "interfaces", "interface_status")
+    result = run(execute_command(IOS_RC1, action))
+    record("IT-003a: Platform Connectivity", "test_connectivity_restconf_edge", IOS_RC1, "RESTCONF", result)
+    assert result, f"Expected non-empty result from execute_command({IOS_RC1})"
+
+
+def test_connectivity_restconf_core2():
+    """IT-003a-4: RESTCONF to Cisco c8000v (C2C) — get interfaces."""
+    from platforms.platform_map import get_action
+    device = {"cli_style": "ios", "transport": "restconf", "host": RC2}
+    action = get_action(device, "interfaces", "interface_status")
+    result = run(execute_command(RC2, action))
+    record("IT-003a: Platform Connectivity", "test_connectivity_restconf_core2", RC2, "RESTCONF", result)
+    assert result, f"Expected non-empty result from execute_command({RC2})"
 
 
 # ── IT-003b: protocol tools ────────────────────────────────────────────────────
 
-def test_ospf_eos():
-    """IT-003b-1: get_ospf neighbors on EOS (R1A)."""
-    result = run(get_ospf(OspfQuery(device=EOS1, query="neighbors")))
-    record("IT-003b: Protocol Tools", "test_ospf_eos", EOS1, "eAPI", result)
-    assert result, "Expected non-empty OSPF result from R1A"
+def test_ospf_restconf_core1():
+    """IT-003b-1: get_ospf neighbors on Cisco c8000v RESTCONF (C1C)."""
+    result = run(get_ospf(OspfQuery(device=RC1, query="neighbors")))
+    record("IT-003b: Protocol Tools", "test_ospf_restconf_core1", RC1, "RESTCONF", result)
+    assert result, f"Expected non-empty OSPF result from {RC1}"
     text = str(result)
-    assert "error" not in text.lower() or "neighbor" in text.lower(), (
-        f"Unexpected error in OSPF result: {text[:200]}"
-    )
+    assert "error" not in text.lower(), f"Unexpected error in OSPF result: {text[:200]}"
 
 
-def test_eigrp_ios():
-    """IT-003b-2: get_eigrp neighbors on IOS (R3C)."""
-    result = run(get_eigrp(EigrpQuery(device=IOS1, query="neighbors")))
-    record("IT-003b: Protocol Tools", "test_eigrp_ios", IOS1, "SSH", result)
-    assert result, "Expected non-empty EIGRP result from R3C"
-    text = str(result)
-    assert "error" not in text.lower() or "neighbor" in text.lower(), (
-        f"Unexpected error in EIGRP result: {text[:200]}"
-    )
+def test_bgp_ios_restconf():
+    """IT-003b-2: get_bgp summary on IOS RESTCONF (E1C)."""
+    result = run(get_bgp(BgpQuery(device=IOS_RC1, query="summary")))
+    record("IT-003b: Protocol Tools", "test_bgp_ios_restconf", IOS_RC1, "RESTCONF", result)
+    assert result, f"Expected non-empty BGP result from {IOS_RC1}"
 
 
-def test_bgp_ros():
-    """IT-003b-3: get_bgp summary on RouterOS (R18M)."""
-    result = run(get_bgp(BgpQuery(device=ROS1, query="summary")))
-    record("IT-003b: Protocol Tools", "test_bgp_ros", ROS1, "REST", result)
-    assert result, "Expected non-empty BGP result from R18M"
+def test_bgp_neighbors_ios_ssh():
+    """IT-003b-3: get_bgp summary on IOS asyncssh (IAN)."""
+    result = run(get_bgp(BgpQuery(device=IOS_SSH3, query="summary")))
+    record("IT-003b: Protocol Tools", "test_bgp_neighbors_ios_ssh", IOS_SSH3, "asyncssh", result)
+    assert result, f"Expected non-empty BGP summary result from {IOS_SSH3}"
+    assert "error" not in result, f"get_bgp summary failed: {result}"
 
 
-def test_bgp_neighbors_ios():
-    """IT-003b-3b: get_bgp neighbors on IOS (R2C) with neighbor IP filter."""
-    result = run(get_bgp(BgpQuery(device="R2C", query="neighbors", neighbor="200.40.40.2")))
-    record("IT-003b: Protocol Tools", "test_bgp_neighbors_ios", "R2C", "SSH", result)
-    assert result, "Expected non-empty BGP neighbors result from R2C"
-    assert "error" not in result, f"get_bgp neighbors failed: {result}"
+def test_interfaces_ios_ssh():
+    """IT-003b-4: get_interfaces on IOS asyncssh (A2C)."""
+    result = run(get_interfaces(InterfacesQuery(device=IOS_SSH2)))
+    record("IT-003b: Protocol Tools", "test_interfaces_ios_ssh", IOS_SSH2, "asyncssh", result)
+    assert result, f"Expected non-empty interfaces result from {IOS_SSH2}"
 
 
-def test_interfaces_ros():
-    """IT-003b-4: get_interfaces on RouterOS (R19M)."""
-    result = run(get_interfaces(InterfacesQuery(device=ROS2, query="interface_status")))
-    record("IT-003b: Protocol Tools", "test_interfaces_ros", ROS2, "REST", result)
-    assert result, "Expected non-empty interfaces result from R19M"
+def test_routing_ios_ssh():
+    """IT-003b-5: get_routing prefix lookup on IOS asyncssh (A1C)."""
+    result = run(get_routing(RoutingQuery(device=IOS_SSH1, prefix="10.0.0.0")))
+    record("IT-003b: Protocol Tools", "test_routing_ios_ssh", IOS_SSH1, "asyncssh", result)
+    assert result, f"Expected non-empty routing result from {IOS_SSH1}"
 
 
-def test_routing_ios():
-    """IT-003b-5: get_routing prefix lookup on IOS (R5C)."""
-    result = run(get_routing(RoutingQuery(device=IOS2, prefix="10.0.0.9")))
-    record("IT-003b: Protocol Tools", "test_routing_ios", IOS2, "SSH", result)
-    assert result, "Expected non-empty routing result from R5C"
+def test_ping_ios_ssh():
+    """IT-003b-6: ping from IOS asyncssh (A1C)."""
+    result = run(ping(PingInput(device=IOS_SSH1, destination="10.0.0.1")))
+    record("IT-003b: Protocol Tools", "test_ping_ios_ssh", IOS_SSH1, "asyncssh", result)
+    assert result, f"Expected non-empty ping result from {IOS_SSH1}"
 
 
-def test_ping_eos():
-    """IT-003b-6: ping from EOS (R6A) to 10.1.1.5."""
-    result = run(ping(PingInput(device=EOS2, destination="10.1.1.5")))
-    record("IT-003b: Protocol Tools", "test_ping_eos", EOS2, "eAPI", result)
-    assert result, "Expected non-empty ping result from R6A"
-    text = str(result)
-    assert "success" in text.lower() or "!" in text or "bytes" in text.lower(), (
-        f"Ping appears to have failed: {text[:200]}"
-    )
+def test_routing_policies_ios_restconf():
+    """IT-003b-7: get_routing_policies route_maps on IOS RESTCONF (E1C)."""
+    result = run(get_routing_policies(RoutingPolicyQuery(device=IOS_RC1, query="route_maps")))
+    record("IT-003b: Protocol Tools", "test_routing_policies_ios_restconf", IOS_RC1, "RESTCONF", result)
+    assert result, f"Expected non-empty routing policies result from {IOS_RC1}"
 
 
-def test_routing_policies_ios():
-    """IT-003b-7: get_routing_policies route_maps on IOS (R8C)."""
-    result = run(get_routing_policies(RoutingPolicyQuery(device=IOS3, query="route_maps")))
-    record("IT-003b: Protocol Tools", "test_routing_policies_ios", IOS3, "SSH", result)
-    assert result, "Expected non-empty routing policies result from R8C"
+def test_traceroute_ios_ssh():
+    """IT-003b-8: traceroute from IOS asyncssh (A1C)."""
+    result = run(traceroute(TracerouteInput(device=IOS_SSH1, destination="10.0.0.1")))
+    record("IT-003b: Protocol Tools", "test_traceroute_ios_ssh", IOS_SSH1, "asyncssh", result)
+    assert result, f"Expected non-empty traceroute result from {IOS_SSH1}"
 
 
-def test_traceroute_ros():
-    """IT-003b-8: traceroute from RouterOS (R20M)."""
-    result = run(traceroute(TracerouteInput(device=ROS3, destination="172.16.77.2")))
-    record("IT-003b: Protocol Tools", "test_traceroute_ros", ROS3, "REST", result)
-    assert result, "Expected non-empty traceroute result from R20M"
+def test_run_show_ios_ssh():
+    """IT-003b-9: run_show fallback on IOS asyncssh (A2C)."""
+    result = run(run_show(ShowCommand(device=IOS_SSH2, command="show ip arp")))
+    record("IT-003b: Protocol Tools", "test_run_show_ios_ssh", IOS_SSH2, "asyncssh", result)
+    assert result, f"Expected non-empty run_show result from {IOS_SSH2}"
 
 
-def test_run_show_eos():
-    """IT-003b-9: run_show fallback on EOS (R7A)."""
-    result = run(run_show(ShowCommand(device=EOS3, command="show ip arp")))
-    record("IT-003b: Protocol Tools", "test_run_show_eos", EOS3, "eAPI", result)
-    assert result, "Expected non-empty run_show result from R7A"
+def test_ospf_restconf_core2():
+    """IT-003b-10: get_ospf neighbors on Cisco c8000v RESTCONF (C2C)."""
+    result = run(get_ospf(OspfQuery(device=RC2, query="neighbors")))
+    record("IT-003b: Protocol Tools", "test_ospf_restconf_core2", RC2, "RESTCONF", result)
+    assert result, f"Expected non-empty OSPF result from {RC2}"
 
 
-def test_run_show_routeros():
-    """IT-003b-9b: run_show fallback on RouterOS (R18M) — GET to /rest/interface."""
-    cmd = json.dumps({"method": "GET", "path": "/rest/interface"})
-    result = run(run_show(ShowCommand(device=ROS1, command=cmd)))
-    record("IT-003b: Protocol Tools", "test_run_show_routeros", ROS1, "REST", result)
-    assert result, "Expected non-empty run_show result from R18M"
-    assert "error" not in result, f"run_show RouterOS GET failed: {result}"
+# ── IT-003c: repeated command returns fresh data ───────────────────────────────
 
-
-def test_redistribution_ros():
-    """IT-003b-10: get_routing_policies redistribution on RouterOS (R18M)."""
-    result = run(get_routing_policies(RoutingPolicyQuery(device=ROS1, query="redistribution")))
-    record("IT-003b: Protocol Tools", "test_redistribution_ros", ROS1, "REST", result)
-    assert result, "Expected non-empty redistribution result from R18M"
-
-
-# ── IT-003c: cache behavior ────────────────────────────────────────────────────
-
-def test_cache_behavior():
-    """IT-003c: execute_command caching — miss, hit, miss after TTL (6s sleep)."""
-    import time
-
-    device = IOS1
+def test_repeated_command_returns_fresh_data():
+    """IT-003c: execute_command — repeated identical calls each return fresh device data."""
+    device = IOS_SSH1
     command = "show clock"
 
     r1 = run(execute_command(device, command))
-    assert r1.get("cache_hit") is False, f"First call should be a cache miss, got: {r1.get('cache_hit')}"
+    assert "error" not in r1, f"First call failed: {r1.get('error')}"
 
     r2 = run(execute_command(device, command))
-    assert r2.get("cache_hit") is True, f"Second call (within TTL) should be a cache hit, got: {r2.get('cache_hit')}"
+    assert "error" not in r2, f"Second call failed: {r2.get('error')}"
 
-    time.sleep(6)  # CMD_TTL = 5s
-
-    r3 = run(execute_command(device, command))
-    assert r3.get("cache_hit") is False, f"Third call (after TTL) should be a cache miss, got: {r3.get('cache_hit')}"
-
-    record("IT-003c: Cache Behavior", "test_cache_behavior", IOS1, "SSH",
-           {"call_1_miss": r1, "call_2_hit": r2, "call_3_miss_after_ttl": r3})
+    record("IT-003c: Repeated Command", "test_repeated_command_returns_fresh_data", IOS_SSH1, "asyncssh",
+           {"call_1": r1, "call_2": r2})
 
 
 # ── IT-003d: push_config (Loopback CRUD) ─────────────────────────────────────
 
-def test_push_config_ios():
-    """IT-003d-1: push_config loopback CRUD on IOS (R3C — SSH)."""
-    device = IOS1
+def test_push_config_ios_ssh():
+    """IT-003d-1: push_config loopback CRUD on IOS asyncssh (A1C)."""
+    device = IOS_SSH1
     phases = {}
 
     # Create Loopback99
@@ -309,7 +286,7 @@ def test_push_config_ios():
         "ip address 10.99.99.1 255.255.255.255",
         "no shutdown",
     ]
-    create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds)))
+    create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds, on_call=True)))
     phases["Create"] = create_result
     assert device in create_result, f"Expected {device} key in push_config result"
 
@@ -322,25 +299,28 @@ def test_push_config_ios():
     finally:
         # Delete Loopback99 (always runs for cleanup)
         delete_cmds = ["no interface Loopback99"]
-        delete_result = run(push_config(ConfigCommand(devices=[device], commands=delete_cmds)))
+        delete_result = run(push_config(ConfigCommand(devices=[device], commands=delete_cmds, on_call=True)))
         phases["Delete"] = delete_result
 
-    record_crud("IT-003d: push_config (Loopback CRUD)", "test_push_config_ios", device, phases)
+    record_crud("IT-003d: push_config (Loopback CRUD)", "test_push_config_ios_ssh", device, phases)
 
 
-def test_push_config_eos():
-    """IT-003d-2: push_config loopback CRUD on EOS (R1A — eAPI)."""
-    device = EOS1
+def test_push_config_ios_restconf():
+    """IT-003d-2: push_config loopback CRUD on IOS RESTCONF (E1C) — push uses SSH CLI."""
+    device = IOS_RC1
     phases = {}
 
-    # Create Loopback99
+    # Create Loopback99 via SSH fallback (c8000v pushes via SSH for CLI commands)
     create_cmds = [
         "interface Loopback99",
-        "ip address 10.99.99.1/32",
+        "ip address 10.99.99.1 255.255.255.255",
+        "no shutdown",
     ]
-    create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds)))
+    create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds, on_call=True)))
     phases["Create"] = create_result
     assert device in create_result, f"Expected {device} key in push_config result"
+
+    time.sleep(2)  # Allow IOS-XE RESTCONF datastore to sync with running-config
 
     try:
         # Verify Loopback99 exists
@@ -351,70 +331,175 @@ def test_push_config_eos():
     finally:
         # Delete Loopback99 (always runs for cleanup)
         delete_cmds = ["no interface Loopback99"]
-        delete_result = run(push_config(ConfigCommand(devices=[device], commands=delete_cmds)))
+        delete_result = run(push_config(ConfigCommand(devices=[device], commands=delete_cmds, on_call=True)))
         phases["Delete"] = delete_result
 
-    record_crud("IT-003d: push_config (Loopback CRUD)", "test_push_config_eos", device, phases)
+    record_crud("IT-003d: push_config (Loopback CRUD)", "test_push_config_ios_netconf", device, phases)
 
 
-def test_push_config_ros():
-    """IT-003d-3: push_config loopback CRUD on RouterOS (R18M — REST)."""
-    device = ROS1
+# ── IT-003e: push_config (Extended CRUD) ──────────────────────────────────────
+
+def test_push_description_ios_ssh():
+    """IT-003e-1: push_config description on Loopback97 — IOS asyncssh (A1C)."""
+    device = IOS_SSH1
     phases = {}
-    bridge_id = None
 
-    # Create bridge "Loopback99" via PUT
-    create_cmd = json.dumps({
-        "method": "PUT",
-        "path": "/rest/interface/bridge",
-        "body": {"name": "Loopback99", "comment": "Test loopback"},
-    })
-    create_result = run(push_config(ConfigCommand(devices=[device], commands=[create_cmd])))
+    create_cmds = [
+        "interface Loopback97",
+        "description INTTEST-MARKER",
+        "no shutdown",
+    ]
+    create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds, on_call=True)))
     phases["Create"] = create_result
     assert device in create_result, f"Expected {device} key in push_config result"
 
-    # Extract .id from REST response for cleanup
     try:
-        rest_response = create_result[device]["result"][0]
-        bridge_id = rest_response.get(".id")
-    except (KeyError, IndexError, TypeError, AttributeError):
-        bridge_id = None
+        verify_result = run(run_show(ShowCommand(device=device, command="show run interface Loopback97")))
+        phases["Verify"] = verify_result
+        text = str(verify_result)
+        assert "Loopback97" in text, f"Loopback97 not found after creation: {text[:300]}"
+        assert "INTTEST-MARKER" in text, f"Description INTTEST-MARKER not found: {text[:300]}"
+    finally:
+        delete_result = run(push_config(ConfigCommand(devices=[device], commands=["no interface Loopback97"], on_call=True)))
+        phases["Delete"] = delete_result
+
+    record_crud("IT-003e: push_config (Extended CRUD)", "test_push_description_ios_ssh", device, phases)
+
+
+def test_push_description_ios_restconf():
+    """IT-003e-2: push_config description on Loopback97 — IOS RESTCONF (C1C). SSH push + RESTCONF read."""
+    device = RC1
+    phases = {}
+
+    create_cmds = [
+        "interface Loopback97",
+        "description INTTEST-MARKER",
+        "no shutdown",
+    ]
+    create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds, on_call=True)))
+    phases["Create"] = create_result
+    assert device in create_result, f"Expected {device} key in push_config result"
+
+    time.sleep(2)  # Allow IOS-XE RESTCONF datastore to sync with running-config
 
     try:
-        # Verify Loopback99 exists
         verify_result = run(get_interfaces(InterfacesQuery(device=device)))
         phases["Verify"] = verify_result
         text = str(verify_result)
-        assert "Loopback99" in text, f"Loopback99 not found after creation: {text[:300]}"
+        assert "Loopback97" in text, f"Loopback97 not found after creation: {text[:300]}"
+        assert "INTTEST-MARKER" in text, f"Description INTTEST-MARKER not found: {text[:300]}"
     finally:
-        # Delete bridge Loopback99 (always runs for cleanup)
-        if not bridge_id:
-            # Fallback: GET all bridges and find Loopback99 by name
-            try:
-                bridges_action = {"method": "GET", "path": "/rest/interface/bridge"}
-                bridges_result = run(execute_command(device, bridges_action))
-                bridge_list = bridges_result.get("parsed") or bridges_result.get("raw", [])
-                if isinstance(bridge_list, list):
-                    for bridge in bridge_list:
-                        if isinstance(bridge, dict) and bridge.get("name") == "Loopback99":
-                            bridge_id = bridge.get(".id")
-                            break
-            except Exception:
-                pass
-
-        if bridge_id:
-            delete_cmd = json.dumps({
-                "method": "DELETE",
-                "path": f"/rest/interface/bridge/{bridge_id}",
-            })
-        else:
-            # Last resort: attempt name-based path
-            delete_cmd = json.dumps({
-                "method": "DELETE",
-                "path": "/rest/interface/bridge/Loopback99",
-            })
-
-        delete_result = run(push_config(ConfigCommand(devices=[device], commands=[delete_cmd])))
+        delete_result = run(push_config(ConfigCommand(devices=[device], commands=["no interface Loopback97"], on_call=True)))
         phases["Delete"] = delete_result
 
-    record_crud("IT-003d: push_config (Loopback CRUD)", "test_push_config_ros", device, phases)
+    record_crud("IT-003e: push_config (Extended CRUD)", "test_push_description_ios_restconf", device, phases)
+
+
+def test_push_acl_ios_ssh():
+    """IT-003e-3: push_config ACL CRUD — IOS asyncssh (A2C). Verified via get_routing_policies."""
+    device = IOS_SSH2
+    phases = {}
+
+    create_cmds = [
+        "ip access-list standard INTTEST-ACL",
+        "permit 192.168.254.0 0.0.0.255",
+    ]
+    create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds, on_call=True)))
+    phases["Create"] = create_result
+    assert device in create_result, f"Expected {device} key in push_config result"
+
+    try:
+        verify_result = run(get_routing_policies(RoutingPolicyQuery(device=device, query="access_lists")))
+        phases["Verify"] = verify_result
+        text = str(verify_result)
+        assert "INTTEST-ACL" in text, f"INTTEST-ACL not found after creation: {text[:300]}"
+    finally:
+        delete_result = run(push_config(ConfigCommand(devices=[device], commands=["no ip access-list standard INTTEST-ACL"], on_call=True)))
+        phases["Delete"] = delete_result
+
+    record_crud("IT-003e: push_config (Extended CRUD)", "test_push_acl_ios_ssh", device, phases)
+
+
+def test_push_prefix_list_ios_restconf():
+    """IT-003e-4: push_config prefix-list CRUD — IOS RESTCONF (E1C). Verified via SSH run_show.
+
+    E1C has no prefix-lists by default — RESTCONF correctly returns {} until the datastore syncs.
+    Verify via SSH run_show to avoid RESTCONF sync timing issues; the test validates push_config
+    correctness, not RESTCONF reads.
+    """
+    device = IOS_RC1
+    phases = {}
+
+    create_cmds = ["ip prefix-list INTTEST-PFX seq 10 permit 192.168.254.0/24"]
+    create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds, on_call=True)))
+    phases["Create"] = create_result
+    assert device in create_result, f"Expected {device} key in push_config result"
+
+    try:
+        verify_result = run(run_show(ShowCommand(device=device, command="show ip prefix-list INTTEST-PFX")))
+        phases["Verify"] = verify_result
+        text = str(verify_result)
+        assert "INTTEST-PFX" in text, f"INTTEST-PFX not found after creation: {text[:300]}"
+    finally:
+        delete_result = run(push_config(ConfigCommand(devices=[device], commands=["no ip prefix-list INTTEST-PFX"], on_call=True)))
+        phases["Delete"] = delete_result
+
+    record_crud("IT-003e: push_config (Extended CRUD)", "test_push_prefix_list_ios_restconf", device, phases)
+
+
+def test_push_multi_device_ssh():
+    """IT-003e-5: push_config Loopback98 to [A1C, A2C] simultaneously — exercises asyncio.gather fan-out."""
+    devices_list = [IOS_SSH1, IOS_SSH2]
+    phases = {}
+
+    create_cmds = [
+        "interface Loopback98",
+        "ip address 10.98.98.1 255.255.255.255",
+        "no shutdown",
+    ]
+    create_result = run(push_config(ConfigCommand(devices=devices_list, commands=create_cmds, on_call=True)))
+    phases["Create"] = create_result
+    for d in devices_list:
+        assert d in create_result, f"Expected {d} key in multi-device push result"
+
+    try:
+        for d in devices_list:
+            verify_result = run(get_interfaces(InterfacesQuery(device=d)))
+            phases[f"Verify-{d}"] = verify_result
+            text = str(verify_result)
+            assert "Loopback98" in text, f"Loopback98 not found on {d} after creation: {text[:300]}"
+    finally:
+        delete_result = run(push_config(ConfigCommand(devices=devices_list, commands=["no interface Loopback98"], on_call=True)))
+        phases["Delete"] = delete_result
+
+    record_crud("IT-003e: push_config (Extended CRUD)", "test_push_multi_device_ssh", str(devices_list), phases)
+
+
+def test_push_multi_device_restconf():
+    """IT-003e-6: push_config Loopback98 to [C1C, C2C] simultaneously — exercises fan-out on restconf-transport devices."""
+    devices_list = [RC1, RC2]
+    phases = {}
+
+    create_cmds = [
+        "interface Loopback98",
+        "ip address 10.98.98.1 255.255.255.255",
+        "no shutdown",
+    ]
+    create_result = run(push_config(ConfigCommand(devices=devices_list, commands=create_cmds, on_call=True)))
+    phases["Create"] = create_result
+    for d in devices_list:
+        assert d in create_result, f"Expected {d} key in multi-device push result"
+
+    time.sleep(2)  # Allow IOS-XE RESTCONF datastore to sync
+
+    try:
+        for d in devices_list:
+            verify_result = run(get_interfaces(InterfacesQuery(device=d)))
+            phases[f"Verify-{d}"] = verify_result
+            text = str(verify_result)
+            assert "Loopback98" in text, f"Loopback98 not found on {d} after creation: {text[:300]}"
+    finally:
+        delete_result = run(push_config(ConfigCommand(devices=devices_list, commands=["no interface Loopback98"], on_call=True)))
+        phases["Delete"] = delete_result
+
+    record_crud("IT-003e: push_config (Extended CRUD)", "test_push_multi_device_restconf", str(devices_list), phases)

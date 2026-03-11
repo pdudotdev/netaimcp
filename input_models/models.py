@@ -1,6 +1,15 @@
+import ipaddress
 import json
+import re
 from typing import Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+# Compiled patterns for parameter validation
+_VRF_RE    = re.compile(r'^[a-zA-Z0-9_-]{1,32}$')
+_SOURCE_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9/:.-]{0,49}$')   # IP or interface name
+_PREFIX_RE = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(/\d{1,2})?$')
+_JIRA_KEY_RE = re.compile(r'^[A-Z][A-Z0-9]+-\d+$')
 
 
 class BaseParamsModel(BaseModel):
@@ -10,6 +19,9 @@ class BaseParamsModel(BaseModel):
     as a JSON string instead of a dict (e.g. '{"device": "R1A"}}' with trailing
     garbage). Uses raw_decode() so any trailing characters after valid JSON are
     silently ignored.
+
+    Also validates the optional `vrf` field (present on most subclasses) to
+    prevent CLI injection via VRF name substitution in platform_map.py.
     """
     @model_validator(mode='before')
     @classmethod
@@ -22,20 +34,27 @@ class BaseParamsModel(BaseModel):
                 raise ValueError(f"Could not parse params as JSON: {v!r}") from e
         return v
 
+    @field_validator('vrf', mode='before', check_fields=False)
+    @classmethod
+    def _validate_vrf(cls, v):
+        if v is None:
+            return v
+        if not _VRF_RE.match(str(v)):
+            raise ValueError(
+                f"vrf must be alphanumeric with underscores/dashes, max 32 chars. Got: {v!r}"
+            )
+        return v
+
 
 # OSPF query - input model
 class OspfQuery(BaseParamsModel):
     device: str = Field(..., description="Device name from inventory")
-    # Validated against PLATFORM_MAP keys — invalid queries are caught here, not at runtime
     query: Literal["neighbors", "database", "borders", "config", "interfaces", "details"] = Field(
         ..., description="neighbors | database | borders | config | interfaces | details"
     )
-
-# EIGRP query - input model
-class EigrpQuery(BaseParamsModel):
-    device: str = Field(..., description="Device name from inventory")
-    query: Literal["neighbors", "topology", "config", "interfaces"] = Field(
-        ..., description="neighbors | topology | config | interfaces"
+    vrf: str | None = Field(None, description="Optional VRF name (default: global routing table)")
+    transport: Literal["restconf", "ssh"] | None = Field(
+        None, description="Force a specific transport tier (restconf/ssh). Default: auto (ActionChain fallback). Only applies to c8000v devices."
     )
 
 # BGP query - input model
@@ -44,68 +63,162 @@ class BgpQuery(BaseParamsModel):
     query: Literal["summary", "table", "config", "neighbors"] = Field(
         ..., description="summary | table | config | neighbors"
     )
-    neighbor: str | None = Field(None, description="Optional neighbor IP to filter output (neighbors query, IOS/EOS only)")
+    neighbor: str | None = Field(None, description="Optional neighbor IP to filter output (neighbors query, IOS only)")
+    vrf: str | None = Field(None, description="Optional VRF name (default: global routing table)")
+    transport: Literal["restconf", "ssh"] | None = Field(
+        None, description="Force a specific transport tier (restconf/ssh). Default: auto (ActionChain fallback). Only applies to c8000v devices."
+    )
+
+    @field_validator('neighbor')
+    @classmethod
+    def _validate_neighbor(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        try:
+            ipaddress.ip_address(v)
+        except ValueError:
+            raise ValueError(f"neighbor must be a valid IP address, got: {v!r}")
+        return v
 
 class RoutingQuery(BaseParamsModel):
     device: str
     prefix: str | None = Field(None, description="Optional prefix to look up")
+    vrf: str | None = Field(None, description="Optional VRF name (default: global routing table)")
+    transport: Literal["restconf", "ssh"] | None = Field(
+        None, description="Force a specific transport tier (restconf/ssh). Default: auto (ActionChain fallback). Only applies to c8000v devices."
+    )
+
+    @field_validator('prefix')
+    @classmethod
+    def _validate_prefix(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not _PREFIX_RE.match(v):
+            raise ValueError(
+                f"prefix must be a valid IPv4 address or CIDR (e.g. 10.0.0.0/24), got: {v!r}"
+            )
+        return v
 
 # Routing policies query - input model
 class RoutingPolicyQuery(BaseParamsModel):
     device: str
     query: Literal[
         "redistribution", "route_maps", "prefix_lists",
-        "policy_based_routing", "access_lists", "nat_pat"
-    ] = Field(..., description="redistribution | route_maps | prefix_lists | policy_based_routing | access_lists | nat_pat")
+        "policy_based_routing", "access_lists"
+    ] = Field(..., description="redistribution | route_maps | prefix_lists | policy_based_routing | access_lists")
+    vrf: str | None = Field(None, description="Optional VRF name (default: global routing table)")
+    transport: Literal["restconf", "ssh"] | None = Field(
+        None, description="Force a specific transport tier (restconf/ssh). Default: auto (ActionChain fallback). Only applies to c8000v devices."
+    )
 
 # Interfaces query - input model
 class InterfacesQuery(BaseParamsModel):
     device: str = Field(..., description="Device name from inventory")
+    transport: Literal["restconf", "ssh"] | None = Field(
+        None, description="Force a specific transport tier (restconf/ssh). Default: auto (ActionChain fallback). Only applies to c8000v devices."
+    )
 
 # Ping - input model
 class PingInput(BaseParamsModel):
     device: str = Field(..., description="Device name from inventory")
     destination: str = Field(..., description="IP address to ping")
-    source: str | None = Field(None, description="Optional source IP or interface")
+    source: str | None = Field(None, description="Optional source IP or interface name")
+    vrf: str | None = Field(None, description="Optional VRF name (default: global routing table)")
+
+    @field_validator('destination')
+    @classmethod
+    def _validate_destination(cls, v: str) -> str:
+        try:
+            ipaddress.ip_address(v)
+        except ValueError:
+            raise ValueError(f"destination must be a valid IP address, got: {v!r}")
+        return v
+
+    @field_validator('source')
+    @classmethod
+    def _validate_source(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        # Accept valid IP address or interface name (e.g. Loopback0, GigabitEthernet1, Ethernet0/1)
+        try:
+            ipaddress.ip_address(v)
+            return v
+        except ValueError:
+            pass
+        if not _SOURCE_RE.match(v):
+            raise ValueError(
+                f"source must be a valid IP address or interface name, got: {v!r}"
+            )
+        return v
 
 # Traceroute - input model
 class TracerouteInput(BaseParamsModel):
     device: str = Field(..., description="Device name from inventory")
     destination: str = Field(..., description="IP address to trace")
-    source: str | None = Field(None, description="Optional source IP or interface")
+    source: str | None = Field(None, description="Optional source IP or interface name")
+    vrf: str | None = Field(None, description="Optional VRF name (default: global routing table)")
+
+    @field_validator('destination')
+    @classmethod
+    def _validate_destination(cls, v: str) -> str:
+        try:
+            ipaddress.ip_address(v)
+        except ValueError:
+            raise ValueError(f"destination must be a valid IP address, got: {v!r}")
+        return v
+
+    @field_validator('source')
+    @classmethod
+    def _validate_source(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        try:
+            ipaddress.ip_address(v)
+            return v
+        except ValueError:
+            pass
+        if not _SOURCE_RE.match(v):
+            raise ValueError(
+                f"source must be a valid IP address or interface name, got: {v!r}"
+            )
+        return v
 
 # Show command - input model
 class ShowCommand(BaseParamsModel):
     """Run a show command against a network device."""
-    device: str = Field(..., description="Device name from inventory (e.g. R1, R2, R3)")
+    device: str = Field(..., description="Device name from inventory (e.g. A1C, E1C)")
     command: str = Field(..., description="Show command to execute on the device")
 
     @field_validator("command")
     @classmethod
     def must_be_read_only(cls, v: str) -> str:
-        """Enforce read-only commands: CLI must start with 'show', RouterOS JSON must use GET."""
+        """Enforce read-only commands across all supported transports.
+
+        Accepted forms:
+          - CLI string starting with 'show ' (IOS asyncssh / Scrapli SSH)
+          - NETCONF JSON: {"filter": "..."} or {"get": "..."}
+          - RESTCONF JSON: {"url": "...", "method": "GET"}
+        """
         stripped = v.strip()
-        # RouterOS JSON action: parse and enforce GET method only
         try:
             parsed = json.loads(stripped)
             if isinstance(parsed, dict):
-                method = parsed.get("method", "").upper()
-                if method != "GET":
-                    raise ValueError(
-                        f"run_show only allows GET for RouterOS actions, got {method!r}"
-                    )
-                path = parsed.get("path", "")
-                if not path.startswith("/rest/"):
-                    raise ValueError(
-                        f"run_show RouterOS path must start with '/rest/'. Got: {path!r}"
-                    )
-                if ".." in path or "\x00" in path:
-                    raise ValueError(
-                        f"run_show RouterOS path contains forbidden sequences. Got: {path!r}"
-                    )
-                return v
+                # RESTCONF dict: url + GET method (read-only)
+                if "url" in parsed:
+                    if parsed.get("method", "GET").upper() != "GET":
+                        raise ValueError(
+                            f"run_show RESTCONF action must use method=GET. Got: {stripped[:80]!r}"
+                        )
+                    return v
+                # NETCONF dict: must have filter or get key (all read-only)
+                if "filter" in parsed or "get" in parsed:
+                    return v
+                raise ValueError(
+                    f"run_show JSON action must have 'url', 'filter', or 'get' key. Got: {stripped[:80]!r}"
+                )
         except json.JSONDecodeError:
             pass
+
         # CLI command: must start with "show " (case-insensitive)
         if not stripped.lower().startswith("show "):
             raise ValueError(
@@ -116,7 +229,7 @@ class ShowCommand(BaseParamsModel):
 # Config commands - input model
 class ConfigCommand(BaseParamsModel):
     """Send configuration commands to one or more devices."""
-    devices: list[str] = Field(..., description="Device names from inventory (e.g. ['R1','R2','R3'])")
+    devices: list[str] = Field(..., description="Device names from inventory (e.g. ['E1C','E2C'])")
     commands: list[str] = Field(..., description="Configuration commands to apply")
     on_call: bool = Field(False, description="If true, bypass the maintenance window check (use in On-Call mode when fixes must go through regardless of time)")
 
@@ -134,7 +247,25 @@ class JiraCommentInput(BaseParamsModel):
     issue_key: str = Field(..., description="Jira issue key (e.g. 'SUP-12')")
     comment: str = Field(..., description="Comment text to add to the ticket")
 
+    @field_validator('issue_key')
+    @classmethod
+    def _validate_issue_key(cls, v: str) -> str:
+        if not _JIRA_KEY_RE.match(v):
+            raise ValueError(
+                f"issue_key must match Jira format (e.g. SUP-12, AINOC-1). Got: {v!r}"
+            )
+        return v
+
 class JiraResolveInput(BaseParamsModel):
     issue_key: str = Field(..., description="Jira issue key (e.g. 'SUP-12')")
     resolution_comment: str = Field(..., description="Resolution summary to add as final comment")
     resolution: str = Field("Done", description="Transition name: 'Done', 'Resolved', or \"Won't Fix\"")
+
+    @field_validator('issue_key')
+    @classmethod
+    def _validate_issue_key(cls, v: str) -> str:
+        if not _JIRA_KEY_RE.match(v):
+            raise ValueError(
+                f"issue_key must match Jira format (e.g. SUP-12, AINOC-1). Got: {v!r}"
+            )
+        return v

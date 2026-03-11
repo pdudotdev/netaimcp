@@ -1,7 +1,6 @@
 """Routing table and policy tools: get_routing, get_routing_policies."""
-from urllib.parse import quote
 from core.inventory import devices
-from platforms.platform_map import PLATFORM_MAP
+from platforms.platform_map import get_action
 from transport import execute_command
 from input_models.models import RoutingQuery, RoutingPolicyQuery
 from tools import _error_response
@@ -24,21 +23,20 @@ async def get_routing(params: RoutingQuery) -> dict:
         return _error_response(params.device, f"Unknown device: {params.device}")
 
     try:
-        base_cmd = PLATFORM_MAP[device["cli_style"]]["routing_table"]["ip_route"]
+        base_cmd = get_action(device, "routing_table", "ip_route", vrf=params.vrf)
     except KeyError:
         return _error_response(params.device, f"Routing not supported on {device['cli_style'].upper()}")
 
     if not params.prefix:
         action = base_cmd
     elif isinstance(base_cmd, dict):
-        # RouterOS REST: append prefix as a query parameter on the path
-        action = dict(base_cmd)
-        action["path"] = f"{base_cmd['path']}?dst-address={quote(params.prefix, safe='')}"
+        # ActionChain dict: return as-is (prefix filtering done server-side)
+        action = base_cmd
     else:
-        # IOS / EOS: append prefix to the CLI command string
+        # IOS CLI string: append prefix to the command
         action = f"{base_cmd} {params.prefix}"
 
-    return await execute_command(params.device, action)
+    return await execute_command(params.device, action, transport=params.transport)
 
 
 async def get_routing_policies(params: RoutingPolicyQuery) -> dict:
@@ -52,14 +50,11 @@ async def get_routing_policies(params: RoutingPolicyQuery) -> dict:
     - redistribution         → View routing protocol redistribution
     - route_maps             → View route-map definitions
     - prefix_lists           → Inspect prefix filtering rules
-    - policy_based_routing   → Verify PBR configuration
+    - policy_based_routing   → Verify PBR configuration (IOS asyncssh only)
     - access_lists           → Review ACLs affecting routing or filtering
-    - nat_pat               → Check NAT/PAT translations and rules
 
     Notes:
     - Supported queries vary by platform.
-    - Results may be cached briefly.
-    - Use nat_pat only on NAT_EDGE devices (R2C, R3C, R18M, R19M) after ruling out routing issues.
 
     Recommended usage:
     - Use when routes are filtered, modified, or unexpectedly redirected.
@@ -71,8 +66,8 @@ async def get_routing_policies(params: RoutingPolicyQuery) -> dict:
         return _error_response(params.device, f"Unknown device: {params.device}")
 
     try:
-        action = PLATFORM_MAP[device["cli_style"]]["routing_policies"][params.query]
+        action = get_action(device, "routing_policies", params.query, vrf=params.vrf)
     except KeyError:
         return _error_response(params.device, f"Routing policy query '{params.query}' not supported on {device['cli_style'].upper()}")
 
-    return await execute_command(params.device, action)
+    return await execute_command(params.device, action, transport=params.transport)

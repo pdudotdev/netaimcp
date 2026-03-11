@@ -1,0 +1,9 @@
+- IOS-XE IOL (Devices A1C, A2C, IAN, IBN):
+  SSH/Scrapli only (asyncssh transport)
+
+
+- IOS-XE c8000v (Devices C1C, C2C, E1C, E2C, X1C):
+  2-tier transport: RESTCONF (primary) -> SSH (fallback)
+
+  Test RESTCONF:
+  curl -k -u admin:admin -H "Accept: application/yang-data+json" https://172.20.20.209/restconf/data/ietf-interfaces:interfaces

@@ -67,7 +67,6 @@ Based on the expected path's protocol, read the relevant skill:
 | Protocol | Skill |
 |----------|-------|
 | OSPF | `skills/ospf/SKILL.md` |
-| EIGRP | `skills/eigrp/SKILL.md` |
 | BGP | `skills/bgp/SKILL.md` |
 | Redistribution | `skills/redistribution/SKILL.md` |
 

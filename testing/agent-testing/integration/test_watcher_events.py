@@ -36,7 +36,6 @@ from oncall.watcher import (
 SLA_DOWN_MESSAGES = [
     "%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down",
     "BOM%TRACK-6-STATE: 2 ip sla 2 reachability Up -> Down",
-    "netwatch,info event down [ type: simple, host: 10.0.0.1 ]",
 ]
 
 NON_SLA_MESSAGES = [
@@ -99,7 +98,7 @@ def test_concurrent_events_captured(tmp_path, monkeypatch):
 
     trigger_event = {
         "ts": "2026-02-27T09:51:49.072Z",
-        "device": "172.20.20.204",
+        "device": "172.20.20.205",
         "msg": "BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down",
     }
 
@@ -113,7 +112,7 @@ def test_concurrent_events_captured(tmp_path, monkeypatch):
         trigger_event,
         {
             "ts": "2026-02-27T09:51:49.210Z",
-            "device": "172.20.20.211",
+            "device": "172.20.20.206",
             "msg": "BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down",
         },
         {
@@ -126,18 +125,18 @@ def test_concurrent_events_captured(tmp_path, monkeypatch):
     monkeypatch.setattr("oncall.watcher.LOG_FILE", str(log_file))
 
     device_map = {
-        "172.20.20.204": "R4C",
-        "172.20.20.211": "R11C",
-        "172.20.20.209": "R9C",
+        "172.20.20.205": "A1C",
+        "172.20.20.206": "A2C",
+        "172.20.20.209": "E1C",
     }
     deferred = scan_for_deferred_events(
         trigger_event, session_start, session_end, device_map
     )
 
     device_names = [e["device_name"] for e in deferred]
-    assert "R11C" in device_names, "R11C concurrent event should be captured"
-    assert "R9C" in device_names, "R9C concurrent event should be captured"
-    assert "R4C" not in device_names, "Trigger event (R4C) should be excluded"
+    assert "A2C" in device_names, "A2C concurrent event should be captured"
+    assert "E1C" in device_names, "E1C concurrent event should be captured"
+    assert "A1C" not in device_names, "Trigger event (A1C) should be excluded"
 
 
 def test_deferred_deduplication(tmp_path, monkeypatch):
@@ -146,7 +145,7 @@ def test_deferred_deduplication(tmp_path, monkeypatch):
 
     trigger_event = {
         "ts": "2026-02-27T09:51:49.072Z",
-        "device": "172.20.20.204",
+        "device": "172.20.20.205",
         "msg": "BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down",
     }
 
@@ -159,27 +158,70 @@ def test_deferred_deduplication(tmp_path, monkeypatch):
         trigger_event,
         {
             "ts": "2026-02-27T09:52:00.000Z",
-            "device": "172.20.20.211",
+            "device": "172.20.20.206",
             "msg": "BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down",
         },
         {
             "ts": "2026-02-27T09:57:00.000Z",
-            "device": "172.20.20.211",
+            "device": "172.20.20.206",
             "msg": "BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down",
         },
         {
             "ts": "2026-02-27T10:02:00.000Z",
-            "device": "172.20.20.211",
+            "device": "172.20.20.206",
             "msg": "BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down",
         },
     ]
     log_file.write_text("\n".join(json.dumps(e) for e in events))
     monkeypatch.setattr("oncall.watcher.LOG_FILE", str(log_file))
 
-    device_map = {"172.20.20.204": "R4C", "172.20.20.211": "R11C"}
+    device_map = {"172.20.20.205": "A1C", "172.20.20.206": "A2C"}
     deferred = scan_for_deferred_events(
         trigger_event, session_start, session_end, device_map
     )
 
     assert len(deferred) == 1, f"Expected 1 deduplicated event, got {len(deferred)}"
-    assert deferred[0]["device_name"] == "R11C"
+    assert deferred[0]["device_name"] == "A2C"
+
+
+def test_deferred_excludes_trigger_device_same_path_repeated(tmp_path, monkeypatch):
+    """Trigger device's same SLA path oscillating (Down->Up->Down) is excluded from deferred."""
+    from datetime import datetime, timezone
+
+    trigger_event = {
+        "ts": "2026-02-27T09:51:49.072Z",
+        "device": "172.20.20.205",
+        "msg": "BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down",
+    }
+
+    session_start = parse_event_ts(trigger_event)
+    session_end = datetime(2026, 2, 27, 10, 5, 42, tzinfo=timezone.utc)
+
+    # Trigger device sends another Down event 2 minutes later (SLA oscillation)
+    log_file = tmp_path / "network.json"
+    events = [
+        trigger_event,
+        {
+            "ts": "2026-02-27T09:53:49.000Z",
+            "device": "172.20.20.205",
+            "msg": "BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down",
+        },
+        # Different device, different path — should still be captured
+        {
+            "ts": "2026-02-27T09:54:00.000Z",
+            "device": "172.20.20.206",
+            "msg": "BOM%TRACK-6-STATE: 2 ip sla 2 reachability Up -> Down",
+        },
+    ]
+    log_file.write_text("\n".join(json.dumps(e) for e in events))
+    monkeypatch.setattr("oncall.watcher.LOG_FILE", str(log_file))
+
+    device_map = {"172.20.20.205": "A1C", "172.20.20.206": "A2C"}
+    deferred = scan_for_deferred_events(
+        trigger_event, session_start, session_end, device_map
+    )
+
+    device_names = [e["device_name"] for e in deferred]
+    assert "A1C" not in device_names, "Trigger device's repeated SLA poll should be excluded"
+    assert "A2C" in device_names, "Different device/path should still be captured"
+    assert len(deferred) == 1, f"Expected 1 deferred event (A2C only), got {len(deferred)}"

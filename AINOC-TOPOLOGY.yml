@@ -1,0 +1,60 @@
+name: ainoc
+
+topology:
+  defaults:
+    env:
+      CLAB_MGMT_PASSTHROUGH: "true"
+  nodes:
+    A1C:
+      kind: cisco_iol
+      image: vrnetlab/cisco_iol:17.16.01a
+      mgmt-ipv4: 172.20.20.205
+    A2C:
+      kind: cisco_iol
+      image: vrnetlab/cisco_iol:17.16.01a
+      mgmt-ipv4: 172.20.20.206
+    C1C:
+      kind: cisco_c8000v
+      image: vrnetlab/cisco_c8000v:17.06.03
+      mgmt-ipv4: 172.20.20.207
+    C2C:
+      kind: cisco_c8000v
+      image: vrnetlab/cisco_c8000v:17.06.03
+      mgmt-ipv4: 172.20.20.208
+    E1C:
+      kind: cisco_c8000v
+      image: vrnetlab/cisco_c8000v:17.06.03
+      mgmt-ipv4: 172.20.20.209
+    E2C:
+      kind: cisco_c8000v
+      image: vrnetlab/cisco_c8000v:17.06.03
+      mgmt-ipv4: 172.20.20.210
+    IAN:
+      kind: cisco_iol
+      image: vrnetlab/cisco_iol:17.16.01a
+      mgmt-ipv4: 172.20.20.220
+    IBN:
+      kind: cisco_iol
+      image: vrnetlab/cisco_iol:17.16.01a
+      mgmt-ipv4: 172.20.20.230
+    X1C:
+      kind: cisco_c8000v
+      image: vrnetlab/cisco_c8000v:17.06.03
+      mgmt-ipv4: 172.20.20.240
+
+  links:
+    - endpoints: ["A1C:Ethernet1/3", "C1C:Gi2"]
+    - endpoints: ["A1C:Ethernet1/2", "C2C:Gi3"]
+    - endpoints: ["A2C:Ethernet1/2", "C1C:Gi3"]
+    - endpoints: ["A2C:Ethernet1/3", "C2C:Gi2"]
+    - endpoints: ["C1C:Gi4", "C2C:Gi4"]
+    - endpoints: ["C1C:Gi6", "E1C:Gi2"]
+    - endpoints: ["C1C:Gi5", "E2C:Gi3"]
+    - endpoints: ["C2C:Gi5", "E1C:Gi3"]
+    - endpoints: ["C2C:Gi6", "E2C:Gi2"]
+    - endpoints: ["E1C:Gi5", "IAN:Ethernet0/1"]
+    - endpoints: ["E1C:Gi4", "IBN:Ethernet0/2"]
+    - endpoints: ["E2C:Gi4", "IAN:Ethernet0/2"]
+    - endpoints: ["E2C:Gi5", "IBN:Ethernet0/1"]
+    - endpoints: ["X1C:Gi2", "IAN:Ethernet0/3"]
+    - endpoints: ["X1C:Gi3", "IBN:Ethernet0/3"]

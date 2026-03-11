@@ -4,6 +4,36 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [v5.0.0]
+
+> Cisco-only architecture with 2-tier transport (RESTCONF→SSH). 9 devices, all Cisco IOS/IOS-XE. Other vendors available as customizable modules per client need.
+
+### 🌐 Topology
+- 9-device Cisco IOS/IOS-XE topology (2 platforms: cisco_iol, cisco_c8000v)
+- OSPF Area 0 + Area 1 stub, BGP dual-ISP (AS1010↔AS4040/AS5050), BGP AS2020 at X1C
+- 5 SLA paths: OSPF cost-based primary/backup ABR selection (A1C/A2C via C1C/C2C)
+
+### 🔌 Transports
+- **NETCONF removed**: 3-tier reduced to 2-tier; `ncclient` and `xmltodict` dependencies removed
+- **2-tier for c8000v**: RESTCONF (primary, httpx/JSON) → SSH (fallback, Scrapli/CLI)
+- **SSH-only for IOL**: A1C, A2C, IAN, IBN
+- `ActionChain` class in `platform_map.py` for ordered transport fallback
+- Config push: all devices use SSH CLI
+
+### 🏗️ Architecture
+- `PLATFORM_MAP` with 2 sections: `ios`, `ios_restconf`
+- `transport/restconf.py` — httpx AsyncClient for RESTCONF reads; RESTCONF now has dedicated BGP/OSPF trim functions to reduce token cost
+- Transport dispatcher with ActionChain fallback iteration + `_transport_used` tag
+- **Cache removed**: 5s LRU cache eliminated — TTL was shorter than LLM inference latency; no invalidation after `push_config`
+- All VRF routing removed: named VRF caused IOS OSPF superbackbone bug; all devices now run in default VRF
+
+### 🧪 Testing
+- 301 unit + watcher-events tests (up from 244)
+- 14 unit test files, covering: transport dispatch, RESTCONF/SSH executors, config push, tool layer, Jira tools
+- New integration tests: full MCP tool coverage, transport layer, platform coverage
+
+---
+
 ## [v4.5.0]
 
 > On-Call-first architecture. Standalone mode retired as an official mode. Tool set simplified.

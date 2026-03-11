@@ -83,7 +83,7 @@ def test_push_config_blocked_outside_window():
     }
 
     params = ConfigCommand(
-        devices=["R1A"],
+        devices=["E1C"],
         commands=["ip ospf hello-interval 10"],
     )
 
@@ -101,10 +101,10 @@ def test_push_config_proceeds_inside_window():
     from tools.config import push_config
 
     open_mw = {"allowed": True, "reason": "Within maintenance window"}
-    mock_push_result = ("R1A", {"output": "ok"})
+    mock_push_result = ("E1C", {"output": "ok"})
 
     params = ConfigCommand(
-        devices=["R1A"],
+        devices=["E1C"],
         commands=["ip ospf hello-interval 10"],
     )
 
@@ -114,7 +114,7 @@ def test_push_config_proceeds_inside_window():
         result = _run(push_config(params))
 
     assert "error" not in result
-    assert result.get("R1A") == {"output": "ok"}
+    assert result.get("E1C") == {"output": "ok"}
 
 
 def test_push_config_on_call_bypasses_maintenance_window():
@@ -128,10 +128,10 @@ def test_push_config_on_call_bypasses_maintenance_window():
         "current_time": "2026-03-07T12:00:00+00:00",
         "reason": "Outside maintenance window",
     }
-    mock_push_result = ("R1A", {"output": "ok"})
+    mock_push_result = ("E1C", {"output": "ok"})
 
     params = ConfigCommand(
-        devices=["R1A"],
+        devices=["E1C"],
         commands=["ip ospf hello-interval 10"],
         on_call=True,
     )
@@ -142,4 +142,4 @@ def test_push_config_on_call_bypasses_maintenance_window():
         result = _run(push_config(params))
 
     assert "error" not in result
-    assert result.get("R1A") == {"output": "ok"}
+    assert result.get("E1C") == {"output": "ok"}

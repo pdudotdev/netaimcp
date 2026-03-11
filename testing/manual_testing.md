@@ -11,7 +11,7 @@ Run these after significant codebase changes to confirm correct agent behavior.
 
 Run automated tests first:
 ```bash
-cd /home/mcp/mcp-project/testing/agent-testing
+cd /home/mcp/aiNOC/testing/agent-testing
 ./run_tests.sh unit         # run only unit tests
 ./run_tests.sh integration  # requires running lab
 ./run_tests.sh all          # run unit and integration
@@ -23,13 +23,13 @@ Then these manual scenarios:
 
 ### Tier 2 — Targeted (~15 min) | Run when touching related code
 
-- **WB-001–003** — Watcher Behavior (partially covered by UT-001 + IT-002)
+- **WB-004** — Watcher Behavior edge cases (service mode sub-scenarios not covered in Tier 1)
 
 ---
 
 ## Prerequisites
 
-- Lab is up (`sudo clab redeploy -t lab.yml`) for each test
+- Lab is up (`sudo clab redeploy -t AINOC-TOPOLOGY.yml`) for each test
 - All devices reachable (verify with `./run_tests.sh integration`)
 - MCP server running and accessible (check with `claude mcp list`)
 
@@ -46,7 +46,7 @@ These tests validate the full watcher → agent pipeline. The watcher monitors
 
 In a separate terminal, start the watcher:
 ```bash
-cd /home/mcp/mcp-project
+cd /home/mcp/aiNOC
 python3 oncall/watcher.py
 ```
 
@@ -70,81 +70,87 @@ Run this test manually for Tier 1 regression and full pipeline validation.
 
 ---
 
-#### OSPF Passive Interface Break (R3C)
+#### OSPF Passive Interface Break (A1C)
 
-**SLA Path**: `R4C_TO_R10C` | **Break device**: R3C | **SLA source**: R4C (172.20.20.204)
-**Implicit**: `R9C_TO_R5C` also breaks — validates deferred queue with two concurrent failures
+**SLA Path**: `A1C_TO_IAN` | **Break device**: A1C | **SLA source**: A1C (172.20.20.205)
+**Implicit**: A1C has a second SLA probe (SLA 2) that also fires — validates deferred queue with concurrent failures
 
 ##### Setup (break)
 
-SSH to R3C:
+First, identify A1C's OSPF interface(s) toward the core (C1C/C2C). Verify with:
+```
+get_ospf("A1C", "interfaces")
+```
+Note the interface name(s) where C1C and C2C neighbors are seen.
+
+Push via `push_config` to A1C (adjust interface name as needed):
 ```
 router ospf 1
-  passive-interface Ethernet0/3
-  passive-interface Ethernet1/0
+  passive-interface <A1C_interface_toward_core>
 ```
+(Making the OSPF-facing interface passive drops both Area 1 adjacencies — C1C and C2C neighbors lost.)
 
 ##### Verify break
 
-From R3C:
+From A1C:
 ```
 show ip ospf neighbor
 ```
-Expected: R1A (via Ethernet0/3) **absent**. R2C (via Ethernet1/0) **absent**.
+Expected: C1C and C2C **absent**.
 
-From R4C:
+From A1C:
 ```
-show ip route 10.10.10.10
+show ip route 10.0.0.26
 ```
-Expected: Route to R10C loopback `10.10.10.10` **absent**.
+Expected: Route to E1C loopback `10.0.0.26` **absent** (no inter-area routes without ABR adjacency).
 
 ##### Check /var/log/network.json
 
 Two IP SLA paths fail as a result of the misconfiguration:
 ```
-{"device":"172.20.20.204","facility":"local7","msg":"BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down","severity":"info","ts":"2026-02-25T07:26:05.065Z"}
-{"device":"172.20.20.209","facility":"local7","msg":"BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down","severity":"info","ts":"2026-02-25T07:26:09.841Z"}
+{"device":"172.20.20.205","facility":"local7","msg":"BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down","severity":"info","ts":"2026-03-01T07:26:05.065Z"}
+{"device":"172.20.20.205","facility":"local7","msg":"BOM%TRACK-6-STATE: 2 ip sla 2 reachability Up -> Down","severity":"info","ts":"2026-03-01T07:26:09.841Z"}
 ```
 
 ##### Check logs/oncall_watcher.log
 
-Agent starts working on the first failure (reported by R4C):
+Agent starts working on the first failure (reported by A1C):
 ```
-[2026-02-25 07:26:06 UTC] Agent invoked for event on R4C: BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down
+[2026-03-01 07:26:06 UTC] Agent invoked for event on A1C: BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down
 ```
 Claude Code session opens automatically in the terminal where `oncall/watcher.py` runs.
 
 ##### Expected agent behavior
 
 1. Reads `skills/oncall/SKILL.md`
-2. Looks up `R4C_TO_R10C` in `sla_paths/paths.json` → scope: R4C, R3C, R1A, R10C
-3. Traceroutes from R4C to `10.10.10.10` → stops at R3C
+2. Looks up `A1C_TO_IAN` in `sla_paths/paths.json` → scope: A1C, C1C, C2C, E1C, E2C, IAN
+3. Traceroutes from A1C (source 10.1.1.5) to `200.40.40.2` → fails at first hop (A1C has no route)
 4. Reads `skills/ospf/SKILL.md`
-5. Calls `get_ospf(R3C, "neighbors")` → R1A missing
-6. Calls `get_ospf(R3C, "config")` → passive-interface on Ethernet0/3 and Ethernet1/0
-7. Proposes removing passive-interface on R3C Ethernet0/3 and Ethernet1/0
+5. Calls `get_ospf(A1C, "neighbors")` → C1C and C2C missing
+6. Calls `get_ospf(A1C, "interfaces")` → shows `passive` on the core-facing interface
+7. Proposes removing passive-interface on A1C
 8. Asks user approval (displayed in the agent session)
-9. Applies fix, verifies R4C route to 10.10.10.10 returns
+9. Applies fix, verifies A1C route to 10.0.0.26 returns
 10. Documents the issue to the Jira ticket (if Jira is configured)
 
 **NOTE: Keep the session open and see Deferred Queue steps below after verifying the fix!**
 
 ##### Verify fix
 
-From R3C:
+From A1C:
 ```
 show ip ospf neighbor
 ```
-Expected: R1A and R2C FULL.
+Expected: C1C and C2C FULL.
 
 In `/var/log/network.json`:
 ```
-{"device":"172.20.20.204","facility":"local7","msg":"BOM%TRACK-6-STATE: 1 ip sla 1 reachability Down -> Up","severity":"info","ts":"2026-02-25T07:33:45.102Z"}
+{"device":"172.20.20.205","facility":"local7","msg":"BOM%TRACK-6-STATE: 1 ip sla 1 reachability Down -> Up","severity":"info","ts":"2026-03-01T07:33:45.102Z"}
 ```
 
-From R4C:
+From A1C:
 ```
-show ip route 10.10.10.10
+show ip route 10.0.0.26
 show ip sla statistics
 ```
 Expected: Route present; latest operation return code: OK.
@@ -159,8 +165,7 @@ Expected: Route present; latest operation return code: OK.
 
 ```
 router ospf 1
-  no passive-interface Ethernet0/3
-  no passive-interface Ethernet1/0
+  no passive-interface <A1C_interface_toward_core>
 ```
 
 ---
@@ -189,13 +194,13 @@ After the first case is resolved and the deferred session starts:
 11. After the fix for the first failure is applied and documentation written, type `/exit`
 12. Check second event logged as `SKIPPED (deferred - occurred during active session)` in `logs/oncall_watcher.log`:
 ```
-[2026-02-25 07:53:52 UTC] SKIPPED (deferred - occurred during active session) - R9C (172.20.20.209): BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down
+[2026-03-01 07:53:52 UTC] SKIPPED (deferred - occurred during active session) - A1C (172.20.20.205): BOM%TRACK-6-STATE: 2 ip sla 2 reachability Up -> Down
 ```
 13. After first agent session closes, a **second agent session** opens automatically with the deferred review prompt:
 ```
 During the previous On-Call session the following SLA path failures were detected but could not be investigated at the time (logged as SKIPPED in logs/oncall_watcher.log):
 
-1. R9C (172.20.20.209): BOM%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down (at 2026-02-25T07:26:09.841Z)
+1. A1C (172.20.20.205): BOM%TRACK-6-STATE: 2 ip sla 2 reachability Up -> Down (at 2026-03-01T07:26:09.841Z)
 
 Would you like to investigate any of these? Reply with a number, 'all', or 'none'.
 ```
@@ -232,7 +237,7 @@ Expected at startup: `Watcher started in SERVICE mode` in `logs/oncall_watcher.l
 
 Inject an SLA Down event:
 ```bash
-echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.204","msg":"%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down"}' | sudo tee -a /var/log/network.json
+echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.205","msg":"%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down"}' | sudo tee -a /var/log/network.json
 ```
 
 Verify:
@@ -260,7 +265,7 @@ sudo journalctl -u oncall-watcher -f
 
 #### C) Deferred queue in service mode
 
-Run the OC-001 break scenario (passive-interface on R3C) to generate two concurrent SLA failures.
+Run the OC-001 break scenario (passive-interface on A1C) to generate concurrent SLA failures.
 Verify:
 1. First failure → agent in `oncall-<ts>` tmux session
 2. Second failure → logged as `SKIPPED (deferred)` in watcher log
@@ -274,38 +279,6 @@ If a transient SSH hiccup occurs during an on-call session, verify in `logs/onca
 SSH attempt 1/3 failed for <device_ip>: ... — retrying in 2s
 ```
 The agent should recover automatically without reporting an error to the user.
-
----
-
-### WB-001 — Non-SLA Events Are Ignored
-
-Inject a syslog message that is NOT an SLA Down event:
-```bash
-echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.201","msg":"%SYS-5-CONFIG_I: Configured from console"}' | sudo tee -a /var/log/network.json
-```
-Expected: Watcher does **not** invoke agent. Log shows no new `Agent invoked` entry.
-
-### WB-002 — SLA Up (Recovery) Events Are Logged Without Agent Invocation
-
-```bash
-echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.204","msg":"%TRACK-6-STATE: 1 ip sla 1 reachability Down -> Up"}' | sudo tee -a /var/log/network.json
-```
-Expected: **No agent invocation.** The watcher detects the Up event, logs a recovery entry,
-and resumes monitoring without starting a Claude session.
-
-In `logs/oncall_watcher.log`:
-```
-SLA RECOVERY: <device-name> (172.20.20.204): %TRACK-6-STATE: 1 ip sla 1 reachability Down -> Up
-```
-
-Verify: no new `Agent invoked` entry appears in the log after the Up event.
-
-### WB-003 — MikroTik Netwatch Event Detected
-
-```bash
-echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.218","msg":"netwatch,info event down [ type: simple, host: 10.0.0.1 ]"}' | sudo tee -a /var/log/network.json
-```
-Expected: Watcher **does** invoke agent (MikroTik format matched).
 
 ---
 

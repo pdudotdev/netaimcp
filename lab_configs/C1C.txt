@@ -1,0 +1,308 @@
+Building configuration...
+
+Current configuration : 7779 bytes
+!
+! Last configuration change at 13:57:17 UTC Wed Mar 11 2026 by admin
+!
+version 17.6
+service timestamps debug datetime msec
+service timestamps log datetime msec
+! Call-home is enabled by Smart-Licensing.
+service call-home
+platform qfp utilization monitor load 80
+platform punt-keepalive disable-kernel-core
+platform console serial
+!
+hostname C1C
+!
+boot-start-marker
+boot-end-marker
+!
+!
+vrf definition clab-mgmt
+ description Containerlab management VRF (DO NOT DELETE)
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+no aaa new-model
+!
+!
+!
+!
+!
+!
+!
+ip domain name example.com
+!
+!
+!
+login on-success log
+ipv6 unicast-routing
+!
+!
+!         
+!
+!
+!
+!
+subscriber templating
+! 
+! 
+! 
+! 
+!
+!
+!
+multilink bundle-name authenticated
+!
+!
+!
+!
+!
+!
+!
+!
+!
+crypto pki trustpoint TP-self-signed-3914640905
+ enrollment selfsigned
+ subject-name cn=IOS-Self-Signed-Certificate-3914640905
+ revocation-check none
+ rsakeypair TP-self-signed-3914640905
+!
+crypto pki trustpoint SLA-TrustPoint
+ enrollment pkcs12
+ revocation-check crl
+!
+!
+crypto pki certificate chain TP-self-signed-3914640905
+ certificate self-signed 01
+  30820330 30820218 A0030201 02020101 300D0609 2A864886 F70D0101 05050030 
+  31312F30 2D060355 04031326 494F532D 53656C66 2D536967 6E65642D 43657274 
+  69666963 6174652D 33393134 36343039 3035301E 170D3236 30333131 30363232 
+  32355A17 0D333630 33313030 36323232 355A3031 312F302D 06035504 03132649 
+  4F532D53 656C662D 5369676E 65642D43 65727469 66696361 74652D33 39313436 
+  34303930 35308201 22300D06 092A8648 86F70D01 01010500 0382010F 00308201 
+  0A028201 0100963C AC7C2444 D91F491C B7273409 453F20BB 825E95EA BBC4011B 
+  B6C65533 D205430D DE755E46 EFDEBEC1 993FB4C4 F3E41169 F94144C7 35F4C69B 
+  77B70B70 D054797C 9AEEFB0E 6E467CD0 9FD3265C 91F5C3E4 6178AC1E A13E15D6 
+  B679C69D 0509E1D8 A9E7BE83 A162631F DDA91222 9186AD3C 243515AD 6CCCB2C9 
+  BE3743F8 F88279A4 2BB38CC9 4242BA52 96E9F38B A5773466 F16BA706 8F00D08E 
+  D242EEDA 827409FF 9A132602 82A8C1BD 9F2E92F0 8FFB9CAA F761244B C1BD00B1 
+  E28E99A1 F11C7766 96AB8803 4545CFA6 F544949C 1A6A9A1D 8EF46295 CCE5CC97 
+  6CE80520 68AEE042 E908E058 A2C10107 6C68EFCC E30E94AF 80E991FA A612490F 
+  43819CDD 6E7F0203 010001A3 53305130 0F060355 1D130101 FF040530 030101FF 
+  301F0603 551D2304 18301680 1468C53D 4BC47A6F 239D3FF8 230C0B34 0B901D1A 
+  02301D06 03551D0E 04160414 68C53D4B C47A6F23 9D3FF823 0C0B340B 901D1A02 
+  300D0609 2A864886 F70D0101 05050003 82010100 5E8711B0 0A899716 9BEB92A3 
+  81ACD485 235CD2E1 C57DD0AA FE0DDABF E67BD726 4C1E0B9B 2F6E5A2F 7DB807AD 
+  2F2597DD D7A5DEED 32D5AA15 D99D8F97 3A257FE7 28BF8142 E22E86D7 BE0E5766 
+  8B1DFC9B 9ED89C27 A5599709 FA6C15CE D1F12A31 150314BD 78D33464 13C7E3CA 
+  3FB0ED7F 094F99FD 0E68B29B EC53DD98 24C90BAA CB7AF42F 469EEB0C B46385CB 
+  92C31CB6 3F90B8E0 4BA3ED75 36D02719 780C4AFB 3CBA70CF A92F9A58 74AF861E 
+  CF6C462F 0DB3A536 3E9F6569 CA06A2D2 5613398A 3EF7E4E2 914144CC 479E306F 
+  F32374EF 2C2ABB72 253453D7 C44B6A7E F50E5691 8A33AB07 B37E62FC 644C68C4 
+  420FD7E8 A9E65084 C788BA5F 05779E11 9D6B56A9
+        quit
+crypto pki certificate chain SLA-TrustPoint
+ certificate ca 01
+  30820321 30820209 A0030201 02020101 300D0609 2A864886 F70D0101 0B050030 
+  32310E30 0C060355 040A1305 43697363 6F312030 1E060355 04031317 43697363 
+  6F204C69 63656E73 696E6720 526F6F74 20434130 1E170D31 33303533 30313934 
+  3834375A 170D3338 30353330 31393438 34375A30 32310E30 0C060355 040A1305 
+  43697363 6F312030 1E060355 04031317 43697363 6F204C69 63656E73 696E6720 
+  526F6F74 20434130 82012230 0D06092A 864886F7 0D010101 05000382 010F0030 
+  82010A02 82010100 A6BCBD96 131E05F7 145EA72C 2CD686E6 17222EA1 F1EFF64D 
+  CBB4C798 212AA147 C655D8D7 9471380D 8711441E 1AAF071A 9CAE6388 8A38E520 
+  1C394D78 462EF239 C659F715 B98C0A59 5BBB5CBD 0CFEBEA3 700A8BF7 D8F256EE 
+  4AA4E80D DB6FD1C9 60B1FD18 FFC69C96 6FA68957 A2617DE7 104FDC5F EA2956AC 
+  7390A3EB 2B5436AD C847A2C5 DAB553EB 69A9A535 58E9F3E3 C0BD23CF 58BD7188 
+  68E69491 20F320E7 948E71D7 AE3BCC84 F10684C7 4BC8E00F 539BA42B 42C68BB7 
+  C7479096 B4CB2D62 EA2F505D C7B062A4 6811D95B E8250FC4 5D5D5FB8 8F27D191 
+  C55F0D76 61F9A4CD 3D992327 A8BB03BD 4E6D7069 7CBADF8B DF5F4368 95135E44 
+  DFC7C6CF 04DD7FD1 02030100 01A34230 40300E06 03551D0F 0101FF04 04030201 
+  06300F06 03551D13 0101FF04 05300301 01FF301D 0603551D 0E041604 1449DC85 
+  4B3D31E5 1B3E6A17 606AF333 3D3B4C73 E8300D06 092A8648 86F70D01 010B0500 
+  03820101 00507F24 D3932A66 86025D9F E838AE5C 6D4DF6B0 49631C78 240DA905 
+  604EDCDE FF4FED2B 77FC460E CD636FDB DD44681E 3A5673AB 9093D3B1 6C9E3D8B 
+  D98987BF E40CBD9E 1AECA0C2 2189BB5C 8FA85686 CD98B646 5575B146 8DFC66A8 
+  467A3DF4 4D565700 6ADF0F0D CF835015 3C04FF7C 21E878AC 11BA9CD2 55A9232C 
+  7CA7B7E6 C1AF74F6 152E99B7 B1FCF9BB E973DE7F 5BDDEB86 C71E3B49 1765308B 
+  5FB0DA06 B92AFE7F 494E8A9E 07B85737 F3A58BE1 1A48A229 C37C1E69 39F08678 
+  80DDCD16 D6BACECA EEBC7CF9 8428787B 35202CDC 60E4616A B623CDBD 230E3AFB 
+  418616A9 4093E049 4D10AB75 27E86F73 932E35B5 8862FDAE 0275156F 719BB2F0 
+  D697DF7F 28
+        quit
+!         
+!
+!
+!
+!
+!
+!
+!
+license udi pid C8000V sn 9853U7DBZXZ
+license boot level network-premier addon dna-premier
+diagnostic bootup level minimal
+memory free low-watermark processor 68445
+!
+!
+spanning-tree extend system-id
+!
+username admin privilege 15 password 0 admin
+!
+redundancy
+!
+!
+!
+!
+!         
+!
+!
+track 1 ip sla 1 reachability
+!
+! 
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+! 
+! 
+!
+!
+interface GigabitEthernet1
+ description Containerlab management interface
+ vrf forwarding clab-mgmt
+ ip address 172.20.20.207 255.255.255.0
+ negotiation auto
+ ipv6 address 3FFF:172:20:20::A/64
+ no mop enabled
+ no mop sysid
+ no shutdown
+!
+interface GigabitEthernet2
+ description TO-A1C
+ ip address 10.1.1.6 255.255.255.252
+ negotiation auto
+ no mop enabled
+ no mop sysid
+ no shutdown
+!
+interface GigabitEthernet3
+ description TO-A2C
+ ip address 10.1.1.14 255.255.255.252
+ negotiation auto
+ no mop enabled
+ no mop sysid
+ no shutdown
+!
+interface GigabitEthernet4
+ description TO-C2C
+ ip address 10.0.0.21 255.255.255.252
+ negotiation auto
+ no mop enabled
+ no mop sysid
+ no shutdown
+!
+interface GigabitEthernet5
+ description TO-E2C
+ ip address 10.0.0.29 255.255.255.252
+ negotiation auto
+ no mop enabled
+ no mop sysid
+ no shutdown
+!
+interface GigabitEthernet6
+ description TO-E1C
+ ip address 10.0.0.25 255.255.255.252
+ negotiation auto
+ no mop enabled
+ no mop sysid
+ no shutdown
+!
+router ospf 1
+ router-id 22.22.22.11
+ area 1 stub
+ area 1 range 10.1.1.0 255.255.255.0
+ network 10.0.0.0 0.0.0.255 area 0
+ network 10.1.1.0 0.0.0.255 area 1
+!
+ip forward-protocol nd
+no ip http server
+ip http secure-server
+!
+ip route vrf clab-mgmt 0.0.0.0 0.0.0.0 172.20.20.1
+ip ssh maxstartups 128
+ip ssh server algorithm mac hmac-sha2-512
+!
+!
+ip sla 1
+ icmp-echo 200.50.50.6 source-interface GigabitEthernet2
+  frequency 5
+ip sla schedule 1 life forever start-time now
+logging trap syslog-format rfc5424
+logging source-interface GigabitEthernet1 vrf clab-mgmt
+logging host 172.20.20.1 vrf clab-mgmt
+ipv6 route vrf clab-mgmt ::/0 3FFF:172:20:20::1
+!
+!         
+!
+!
+control-plane
+!
+!
+mgcp behavior rsip-range tgcp-only
+mgcp behavior comedia-role none
+mgcp behavior comedia-check-media-src disable
+mgcp behavior comedia-sdp-force disable
+!
+mgcp profile default
+!
+!
+!
+!
+!
+!
+line con 0
+ logging synchronous
+ stopbits 1
+line aux 0
+line vty 0 4
+ logging synchronous
+ login local
+ length 0
+ transport input all
+!
+call-home
+ ! If contact email address in call-home is configured as sch-smart-licensing@cisco.com
+ ! the email address configured in Cisco Smart License Portal will be used as contact email address to send SCH notifications.
+ contact-email-addr sch-smart-licensing@cisco.com
+ profile "CiscoTAC-1"
+  active
+  destination transport-method http
+ntp source GigabitEthernet1
+ntp server vrf clab-mgmt 172.20.20.1 prefer
+!
+netconf detailed-error
+netconf max-sessions 16
+!
+!
+!
+!
+!         
+netconf-yang
+restconf
+end

@@ -18,7 +18,7 @@ from tools.state import assess_risk
 MOCK_INTENT = {
     "routers": {
         "R_ABR":  {"roles": ["ABR", "ASBR", "NAT_EDGE"]},   # critical control-plane node
-        "R_LEAF": {"roles": ["EIGRP_LEAF"]},                  # non-critical leaf
+        "R_LEAF": {"roles": ["OSPF_LEAF"]},                   # non-critical leaf
         "R_BARE": {"roles": ["OSPF_LEAF"]},                   # no SLA paths either
     }
 }
@@ -119,9 +119,13 @@ def test_ospf_keyword_triggers_high():
 
 
 def test_bgp_keyword_triggers_high():
-    """Commands containing 'bgp' touch the routing control plane and must escalate to high."""
+    """Commands containing 'bgp' touch the routing control plane and must escalate to high.
+
+    'neighbor' alone does not contain a routing keyword and must stay low.
+    'router bgp' contains 'bgp' and 'router ' — both trigger high risk.
+    """
     result = _assess(["R_BARE"], ["neighbor 10.0.0.1 remote-as 65001"])
-    # "bgp" not in "neighbor..." — use explicit bgp keyword
+    assert result["risk"] == "low", "bare 'neighbor' command without bgp keyword must be low risk"
     result2 = _assess(["R_BARE"], ["router bgp 65001"])
     assert result2["risk"] == "high"
 
@@ -133,12 +137,6 @@ def test_shutdown_keyword_triggers_high():
     result = _assess(["R_BARE"], ["shutdown"])
     assert result["risk"] == "high"
     assert any("disruption" in r.lower() for r in result["reasons"])
-
-
-def test_eigrp_keyword_triggers_high():
-    """Commands containing 'eigrp' touch the routing control plane and must escalate to high."""
-    result = _assess(["R_BARE"], ["router eigrp 10"])
-    assert result["risk"] == "high"
 
 
 # ── Device count escalation ───────────────────────────────────────────────────
@@ -157,7 +155,7 @@ def test_two_devices_triggers_medium():
     Multiple-device changes increase coordination risk.
     """
     result = _assess(["R_BARE", "R_BARE"], ["description test"])
-    assert result["risk"] in ("medium", "high")
+    assert result["risk"] == "medium", "exactly 2 devices with benign commands must be exactly medium risk"
     assert any("multiple" in r.lower() or "2" in r for r in result["reasons"])
 
 
@@ -184,3 +182,29 @@ def test_low_risk_returns_default_reason():
     # Default message is used when no specific reason was added
     if result["risk"] == "low":
         assert any("minor" in r.lower() for r in result["reasons"])
+
+
+# ── Command keyword edge cases ─────────────────────────────────────────────────
+
+def test_no_shutdown_excluded_from_high_risk():
+    """'no shutdown' must NOT trigger the interface-disruption high risk escalation.
+
+    The disruption check explicitly guards against false-positives from 'no shutdown'
+    (which brings interfaces UP, not down). Only bare 'shutdown' must trigger high.
+    """
+    result_no_shut = _assess(["R_BARE"], ["no shutdown"])
+    result_shut    = _assess(["R_BARE"], ["shutdown"])
+
+    assert result_no_shut["risk"] != "high" or not any(
+        "disruption" in r.lower() for r in result_no_shut["reasons"]
+    ), "'no shutdown' must not trigger interface disruption escalation"
+    assert result_shut["risk"] == "high", "bare 'shutdown' must escalate to high risk"
+
+
+def test_empty_commands_returns_low():
+    """assess_risk with an empty command list must default to low risk.
+
+    No keywords can match an empty string, so the result must be the base low risk.
+    """
+    result = _assess(["R_BARE"], [])
+    assert result["risk"] == "low", "empty command list must result in low risk"

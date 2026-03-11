@@ -10,7 +10,7 @@ bottlenecks to be aware of as the system grows.
 
 ## Adding a New Protocol
 
-Protocols supported today: OSPF, EIGRP, BGP, routing policies.
+Protocols supported today: OSPF, BGP, routing policies.
 
 Candidate protocols: VRRP, HSRP, MSTP/STP, PIM/IGMP, LAG/LACP, IS-IS, VPN (L3VPN).
 
@@ -45,24 +45,24 @@ After adding a new protocol:
 
 ## Adding a New Vendor
 
-Vendors supported today: Cisco IOS-XE (`ios`), Arista EOS (`eos`), MikroTik RouterOS (`routeros`).
+Core vendor today: Cisco IOS-XE (`ios`) — all 9 lab devices. Module vendors (available as consultancy/extension builds): Arista EOS (`eos`), Juniper JunOS (`junos`), MikroTik RouterOS (`routeros`), VyOS (`vyos`), Aruba AOS-CX (`aos`).
 
-Candidate vendors: Juniper JunOS, Aruba CX, SONiC.
+Candidate vendors for future core expansion: SONiC.
 
 ### Recipe (~10 files, ~1-2 days)
 
 | Step | File | Action |
 |------|------|--------|
-| 1 | `transport/junos.py` (new) | Implement the transport module: `execute_junos(device, cmd_or_action) → (raw, parsed)`. Mirror the structure of `transport/ssh.py` or `transport/eapi.py`. Handle authentication, timeouts, error cases, and `cache_hit`. |
+| 1 | `transport/<vendor>.py` (new) | Implement the transport module: `execute_<vendor>(device, cmd_or_action) → (raw, parsed)`. Mirror the structure of `transport/ssh.py`. Handle authentication, timeouts, and error cases. |
 | 2 | `transport/__init__.py` | Add the new `transport` type to the `if/elif` dispatch chain in `execute_command()`. |
-| 3 | `tools/config.py` | Add the new `cli_style` to `_push_to_device_safe()`. Map to the correct push mechanism (REST PUT/PATCH, Netconf RPC, CLI commit, etc.). |
-| 4 | `platforms/platform_map.py` | Add `"junos": { "ospf": {...}, "bgp": {...}, ... }` with all protocol→query→command mappings. |
-| 5 | `input_models/models.py` | Extend `ShowCommand` field_validator: add `cli_style == "junos"` branch with JunOS-appropriate show-command restrictions (e.g. `show` prefix in JunOS CLI, or `GET`-only for REST). |
-| 6 | `inventory/NETWORK.json` | Add device entries with `"cli_style": "junos"` and correct `"transport"` type. |
+| 3 | `tools/config.py` | Add the new `cli_style` to `_push_to_device()`. Map to the correct push mechanism (REST PUT/PATCH, CLI commit, etc.). |
+| 4 | `platforms/platform_map.py` | Add `"<cli_style>": { "ospf": {...}, "bgp": {...}, ... }` with all protocol→query→command mappings. |
+| 5 | `input_models/models.py` | Extend `ShowCommand` field_validator: add appropriate show-command restrictions for the new vendor (e.g. `show ` prefix for IOS-style CLI, or `GET`-only for REST). |
+| 6 | `inventory/NETWORK.json` | Add device entries with `"cli_style": "<vendor>"` and correct `"transport"` type. |
 | 7 | `intent/INTENT.json` | Add device roles, AS assignments, and topology information. |
-| 8 | `vendors/junos_reference.md` (new) | Document API/CLI behavioral notes — equivalent to `vendors/mikrotik_api_reference.md`. Include: auth method, push command format, quirks, forbidden operations. |
-| 9 | `platforms/mcp_tool_map.json` | Add `"junos"` entries for each tool's valid queries. |
-| 10 | Tests | Add transport unit tests; add `cli_style="junos"` assertions to `test_platform_map.py`. |
+| 8 | `vendors/<vendor>_reference.md` (new) | Document API/CLI behavioral notes. Include: auth method, push command format, quirks, forbidden operations. |
+| 9 | `platforms/mcp_tool_map.json` | Add `"<cli_style>"` entries for each tool's valid queries. |
+| 10 | Tests | Add transport unit tests; add `cli_style="<vendor>"` assertions to `test_platform_map.py`. |
 
 Step 1 (transport module) is the most work. Steps 2-3 are small additions to existing dispatch chains.
 
@@ -71,8 +71,8 @@ Step 1 (transport module) is the most work. Steps 2-3 are small additions to exi
 After adding a new vendor:
 - `pytest testing/agent-testing/unit/test_platform_map.py -v` — add assertions for the new cli_style.
 - `pytest testing/agent-testing/unit/test_input_validation.py -v` — add ShowCommand validation cases.
-- `pytest testing/agent-testing/integration/test_transport.py -v` (lab required) — add a TestJunOSTransport class.
-- Manually verify: `get_ospf(device="<junos_device>", query="neighbors")` returns structured output.
+- `pytest testing/agent-testing/integration/test_transport.py -v` (lab required) — add a transport test class.
+- Manually verify: `get_ospf(device="<new_device>", query="neighbors")` returns structured output.
 
 ---
 
@@ -80,43 +80,41 @@ After adding a new vendor:
 
 These are NOT blocking today. They become relevant when the system grows.
 
-### 1. Transport Dispatch Duplication (HIGH — at 5+ vendors)
+### 1. Transport Dispatch Duplication (LOW — at 3 core vendors)
 
 **Current state:** Two if/elif chains keyed on `cli_style`/`transport`:
-- `transport/__init__.py` → `execute_command()` dispatch
-- `tools/config.py` → `_push_to_device_safe()` dispatch
+- `transport/__init__.py` → `execute_command()` dispatch (asyncssh / restconf + ActionChain)
+- `tools/config.py` → `_push_to_device()` dispatch
 
-At 3 vendors these are short and readable. At 5+ vendors, both files must be updated together on every new vendor addition, creating a maintenance burden.
+At 1 core vendor (2 transports: asyncssh + restconf/ssh ActionChain) these are lean and manageable. At 6+ vendors, both files would need updating together on every addition, creating a maintenance burden.
 
 **Future fix (when needed):** Extract a transport registry:
 ```python
 # transport/registry.py
-from transport.ssh  import SSHTransport
-from transport.eapi import EAPITransport
-from transport.rest import RESTTransport
+from transport.ssh      import SSHTransport
+from transport.restconf import RESTCONFTransport
 
 TRANSPORT_REGISTRY: dict[str, type] = {
     "asyncssh": SSHTransport,
-    "eapi":     EAPITransport,
-    "rest":     RESTTransport,
+    "restconf": RESTCONFTransport,
 }
 ```
 Each transport class implements `execute(device, cmd_or_action)` and `push(device, commands)`.
 Registration replaces the if/elif chains. New vendor = new entry in `TRANSPORT_REGISTRY`.
 
-### 2. Monolithic PLATFORM_MAP (MEDIUM — at 5+ vendors)
+### 2. Monolithic PLATFORM_MAP (LOW — at 3 core vendors)
 
-**Current state:** All vendor command mappings live in a single dict in `platforms/platform_map.py`.
-At 3 vendors × ~6 protocols × ~6 queries each the file is manageable (~100 lines).
-At 5+ vendors this exceeds readable size.
+**Current state:** All command mappings live in a single dict in `platforms/platform_map.py`.
+At 1 core vendor × 2 sections (ios, ios_restconf) × ~5 protocols × ~6 queries each the file is well within readable size.
+At 6+ vendors this could exceed maintainable size — per-vendor module split below should be planned.
 
 **Future fix (when needed):** Per-vendor modules:
 ```
 platforms/
     __init__.py    # merges dicts from all vendor modules
     ios.py         # PLATFORM_MAP["ios"] = {...}
+    ios_restconf.py # PLATFORM_MAP["ios_restconf"] = {...}
     eos.py         # PLATFORM_MAP["eos"] = {...}
-    routeros.py    # PLATFORM_MAP["routeros"] = {...}
     junos.py       # PLATFORM_MAP["junos"] = {...}
 ```
 No change to consumers — they still `from platforms.platform_map import PLATFORM_MAP`.
@@ -130,7 +128,8 @@ No change to consumers — they still `from platforms.platform_map import PLATFO
 ```python
 class RouterIntent(BaseModel):
     roles: list[Literal["ABR", "ASBR", "IGP_REDISTRIBUTOR", "NAT_EDGE",
-                         "ROUTE_REFLECTOR", "EIGRP_LEAF", "EIGRP_HUB"]]
+                         "ROUTE_REFLECTOR", "OSPF_AREA0_CORE",
+                         "OSPF_AREA1_LEAF", "ISP_A_EDGE", "ISP_B_EDGE"]]
     igp_areas: dict[str, Any] = {}
     bgp: dict[str, Any] = {}
 ```
@@ -143,9 +142,10 @@ This would catch typos at startup and serve as authoritative documentation of va
 
 | Dimension | Count | Headroom |
 |-----------|-------|----------|
-| Vendors | 3 | ~5 before bottleneck #1 triggers |
-| Protocols per vendor | 5-6 | ~10 before bottleneck #2 triggers |
-| Unit tests | 230 | Each new protocol adds ~10-20 tests |
-| Lines of Python | ~2,300 | No refactoring needed until 5+ vendors |
+| Core vendors | 1 (Cisco) | ~6+ before bottleneck #1 becomes relevant |
+| Transports | 2 (restconf, asyncssh) — 2-tier ActionChain for c8000v | Well under threshold |
+| Protocols per vendor | 4-5 | ~10 before bottleneck #2 triggers |
+| Unit tests | 307 | Each new protocol adds ~10-20 tests |
+| Lines of Python | ~3,500 | Transport registry refactor relevant at 6+ vendors |
 
-**Verdict:** The architecture scales cleanly for the next 2-3 protocols and 1-2 vendors with zero refactoring. The bottlenecks above are future considerations only.
+**Verdict:** The architecture is well within comfortable scaling bounds at 1 core vendor and 2 transports. Both dispatch bottlenecks are low priority — no refactoring needed until vendor count reaches 6+.

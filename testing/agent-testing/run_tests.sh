@@ -24,9 +24,17 @@ echo "========================================"
 cd "${PROJECT_ROOT}"
 TEST_PREFIX="testing/agent-testing"
 
+# Use project venv python if available, otherwise fall back to system python3
+VENV_PYTHON="${PROJECT_ROOT}/mcp/bin/python3"
+if [[ -x "${VENV_PYTHON}" ]]; then
+    PYTHON="${VENV_PYTHON}"
+else
+    PYTHON="python3"
+fi
+
 # Check dependencies
-if ! python3 -c "import pytest" 2>/dev/null; then
-    echo "ERROR: pytest not found. Run: pip install -r /home/mcp/mcp-project/requirements.txt"
+if ! "${PYTHON}" -c "import pytest" 2>/dev/null; then
+    echo "ERROR: pytest not found. Run: pip install -r /home/mcp/aiNOC/requirements.txt"
     exit 1
 fi
 
@@ -40,7 +48,7 @@ run_pytest() {
 
     echo ""
     echo "── ${label} ────────────────────────────────"
-    if python3 -m pytest "${path}" -v 2>&1; then
+    if "${PYTHON}" -m pytest "${path}" -v 2>&1; then
         PASS=$((PASS + 1))
         echo "  [PASS] ${label}"
     else
@@ -56,11 +64,16 @@ case "${MODE}" in
         run_pytest "UT-002 Platform Map"        "${TEST_PREFIX}/unit/test_platform_map.py"
         run_pytest "UT-003 Drain Mechanism"     "${TEST_PREFIX}/unit/test_drain_mechanism.py"
         run_pytest "UT-004 Input Validation"    "${TEST_PREFIX}/unit/test_input_validation.py"
-        run_pytest "UT-005 Cache"               "${TEST_PREFIX}/unit/test_cache.py"
         run_pytest "UT-006 Command Validation"  "${TEST_PREFIX}/unit/test_command_validation.py"
         run_pytest "UT-007 Maintenance Window"  "${TEST_PREFIX}/unit/test_maintenance_window.py"
         run_pytest "UT-008 Risk Assessment"     "${TEST_PREFIX}/unit/test_risk_assessment.py"
         run_pytest "UT-009 Syslog Sanitize"     "${TEST_PREFIX}/unit/test_syslog_sanitize.py"
+        run_pytest "UT-010 Transport Dispatch"  "${TEST_PREFIX}/unit/test_transport_dispatch.py"
+        run_pytest "UT-011 RESTCONF Unit"       "${TEST_PREFIX}/unit/test_restconf_unit.py"
+        run_pytest "UT-013 SSH Unit"            "${TEST_PREFIX}/unit/test_ssh_unit.py"
+        run_pytest "UT-014 Config Push"         "${TEST_PREFIX}/unit/test_config_push.py"
+        run_pytest "UT-015 Tool Layer"          "${TEST_PREFIX}/unit/test_tool_layer.py"
+        run_pytest "UT-016 Jira Tools"          "${TEST_PREFIX}/unit/test_jira_tools.py"
         ;;
 
     integration)
@@ -68,6 +81,7 @@ case "${MODE}" in
         run_pytest "IT-002 Watcher Events"    "${TEST_PREFIX}/integration/test_watcher_events.py"
         run_pytest "IT-003 MCP Tools"         "${TEST_PREFIX}/integration/test_mcp_tools.py"
         run_pytest "IT-004 Transport Layer"   "${TEST_PREFIX}/integration/test_transport.py"
+        run_pytest "IT-005 Platform Coverage" "${TEST_PREFIX}/platform_tests/test_platform_coverage.py"
         ;;
 
     all)
@@ -75,15 +89,21 @@ case "${MODE}" in
         run_pytest "UT-002 Platform Map"        "${TEST_PREFIX}/unit/test_platform_map.py"
         run_pytest "UT-003 Drain Mechanism"     "${TEST_PREFIX}/unit/test_drain_mechanism.py"
         run_pytest "UT-004 Input Validation"    "${TEST_PREFIX}/unit/test_input_validation.py"
-        run_pytest "UT-005 Cache"               "${TEST_PREFIX}/unit/test_cache.py"
         run_pytest "UT-006 Command Validation"  "${TEST_PREFIX}/unit/test_command_validation.py"
         run_pytest "UT-007 Maintenance Window"  "${TEST_PREFIX}/unit/test_maintenance_window.py"
         run_pytest "UT-008 Risk Assessment"     "${TEST_PREFIX}/unit/test_risk_assessment.py"
         run_pytest "UT-009 Syslog Sanitize"     "${TEST_PREFIX}/unit/test_syslog_sanitize.py"
+        run_pytest "UT-010 Transport Dispatch"  "${TEST_PREFIX}/unit/test_transport_dispatch.py"
+        run_pytest "UT-011 RESTCONF Unit"       "${TEST_PREFIX}/unit/test_restconf_unit.py"
+        run_pytest "UT-013 SSH Unit"            "${TEST_PREFIX}/unit/test_ssh_unit.py"
+        run_pytest "UT-014 Config Push"         "${TEST_PREFIX}/unit/test_config_push.py"
+        run_pytest "UT-015 Tool Layer"          "${TEST_PREFIX}/unit/test_tool_layer.py"
+        run_pytest "UT-016 Jira Tools"          "${TEST_PREFIX}/unit/test_jira_tools.py"
         run_pytest "IT-001 MCP Connectivity"    "${TEST_PREFIX}/integration/test_mcp_connectivity.py"
         run_pytest "IT-002 Watcher Events"      "${TEST_PREFIX}/integration/test_watcher_events.py"
         run_pytest "IT-003 MCP Tools"           "${TEST_PREFIX}/integration/test_mcp_tools.py"
         run_pytest "IT-004 Transport Layer"     "${TEST_PREFIX}/integration/test_transport.py"
+        run_pytest "IT-005 Platform Coverage"   "${TEST_PREFIX}/platform_tests/test_platform_coverage.py"
         ;;
 
     *)

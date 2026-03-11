@@ -189,6 +189,17 @@ Prevents:
 
 ---
 
+# 🔒 v5.0 Security Controls
+
+## ✅ Credential & Destructive Command Protection (Permission Deny Rules)
+- `.env` files blocked from `Read` and `Bash(cat)` — prevents credential exposure (router creds, Jira token)
+- `Bash(ssh *)` denied — enforces Pitfall #5 at permission level, not just prompt level
+- `Bash(rm -rf *)` denied — prevents catastrophic file deletion
+- `git push --force` and `git reset --hard` denied — prevents irreversible git operations
+- Defined in `.claude/settings.local.json` deny list
+
+---
+
 # 📟 On-Call Mode Isolation
 
 ## ✅ Focus Enforcement
@@ -203,52 +214,59 @@ Prevents:
 
 ---
 
-# ⚙️ Command Caching (MCP Server)
-
-## ✅ 5-Second Command-Level Cache
-- Keyed by: `(device, command)`
-- Prevents re-querying identical command within 5 seconds
-- Reduces repetition and costs
-
-## ✅ Cache Hit Skips Device Connection
-- Identical device + command within 5 seconds:
-  - Returns cached result
-  - No device connection made
-- `run_show` excluded (TTL = 0)
-
----
-
-# 🔒 v4.0 Security Controls
+# 🔒 Security Controls
 
 ## ✅ `run_show` Read-Only Enforcement (Pitfall #13)
 - `ShowCommand` Pydantic model validates at MCP boundary
-- CLI commands: must start with `show ` (case-insensitive)
-- RouterOS actions: must use `method: GET`
+- CLI commands (IOS): must start with `show ` (case-insensitive)
+- RESTCONF JSON actions: must have `url` key with `method=GET` only
 - Any other input raises `ValidationError` before execution
 - Prevents config bypass via `run_show`
 
-## ✅ RouterOS REST Validation
-- Forbidden REST paths blocked before any HTTP call
-- POST method rejected (not supported on RouterOS 7.x)
-- Config changes must use `push_config` with PUT / PATCH / DELETE
-
-## ✅ Syslog Prompt Injection Mitigation
-- Syslog messages sanitized before injection into agent prompt
+## ✅ Syslog Prompt Injection Mitigation (Strengthened in v5.0)
+- Syslog messages sanitized via character allowlist (alphanumeric + safe network punctuation only) — all other characters replaced with spaces
+- Applied to all event fields before injection into the agent prompt and before writing to deferred/pending event files
 - Delimiter markers isolate log content from instructions
-- Prevents malicious log entries from hijacking agent behavior
+- **Known residual risk**: No sanitizer can fully prevent LLM prompt injection from adversarial ASCII text; this is a defense-in-depth measure
 
-## ✅ Expanded Forbidden Command Set
-- Grown from 5 → 14 blocked patterns in `tools/config.py`
-- Covers: reload, erase, write erase, format, delete, and others
+## ✅ Expanded Forbidden Command Set (Updated in v5.0)
+- 23 blocked patterns in `tools/config.py`
+- Covers: reload, erase, write erase, format, delete, copy run, write mem, configure replace, username manipulation, enable secret/password, snmp-server community, crypto key ops, transport input none, and others
 - Applied before any `push_config` execution
+- **Known residual risk**: IOS abbreviations (e.g. `wr er` instead of `write erase`) bypass substring matching; a full IOS parser would be required to close this gap completely
+
+## ✅ Input Parameter Validation (v5.0)
+- `ping`/`traceroute` `destination`: validated with `ipaddress.ip_address()` — rejects CLI injection via append (e.g. `"8.8.8.8 repeat 999999"`)
+- `ping`/`traceroute` `source`: validated as IP address or interface name regex — rejects arbitrary string injection
+- `get_bgp` `neighbor`: validated with `ipaddress.ip_address()` — rejects `"1.2.3.4 | include password"` style injection
+- `get_routing` `prefix`: validated as IPv4 address or CIDR regex
+- All `vrf` fields: validated as alphanumeric + underscore/dash, max 32 chars — rejects newline injection in VRF substitution
+- Jira `issue_key`: validated as `^[A-Z][A-Z0-9]+-\d+$` — prevents URL path traversal in Jira REST calls
+- Implemented in `input_models/models.py` at the Pydantic model layer
+
+## ✅ Maintenance Window Fail-Closed (v5.0)
+- If `MAINTENANCE.json` is missing or deleted, `check_maintenance_window` returns `allowed: False`
+- Previously failed open (allowed all changes when policy file was absent)
+- Implemented in `tools/state.py`
 
 ## ✅ TLS/SSL Configuration (Env-Var Only, Pitfall #12)
-- Controlled by: `VERIFY_TLS`, `ROUTEROS_USE_HTTPS`, `SSH_STRICT_HOST_KEY`
+- Controlled by: `RESTCONF_VERIFY_TLS`, `SSH_STRICT_HOST_KEY`
 - Read once at import time — not runtime-configurable
 - Agent cannot toggle or bypass TLS settings mid-session
+- **Lab vs. production note**: Both default to `false` for lab convenience. For production deployments, set both to `true` in `.env`. No startup warning is emitted — rely on deployment documentation.
+
+## ✅ Credential & Destructive Command Protection (Permission Deny Rules, v5.0)
+- `.env` and common secret file variants blocked from `Read` — prevents credential exposure (router creds, Jira token)
+- `Bash(env)`, `Bash(printenv *)`, `Bash(less .env*)`, `Bash(head .env*)` denied — closes common bypass vectors
+- `Bash(ssh *)`, `Bash(sshpass *)` denied — enforces Pitfall #5 at permission level, not just prompt level
+- `Bash(rm -rf *)` denied — prevents catastrophic file deletion
+- `git push --force` and `git reset --hard` denied — prevents irreversible git operations
+- `nc`, `curl`, `sudo docker`, `docker exec` removed from allow list — require explicit user approval each use
+- Defined in `.claude/settings.local.json` deny list
+- **Known residual risk**: `Bash(python3:*)` is broadly allowed and cannot be restricted without breaking test/tool execution; a `python3 -c` invocation reading `.env` would succeed. Mitigated by prompt-level instructions only.
 
 ## ✅ Rollback Advisory (`push_config`)
-- Rollback advisory generated for every config change (inverting "no" prefixes for CLI, noting manual rollback for RouterOS)
+- Rollback advisory generated for every config change (inverting "no" prefixes for IOS CLI strings)
 
 ---
 
@@ -265,8 +283,8 @@ Prevents:
 | Device role | Device has role ABR, ASBR, IGP_REDISTRIBUTOR, NAT_EDGE, or ROUTE_REFLECTOR (from `intent/INTENT.json`) | high |
 | SLA path impact | ≥ 3 SLA paths in `scope_devices` include a target device | high |
 | SLA path impact | 1–2 SLA paths affected | medium (upgrades from low only) |
-| Command content | Commands contain: `router`, `ospf`, `bgp`, `isis`, or `eigrp` | high |
-| Command content | Commands contain: `shutdown` or `no shutdown` | high |
+| Command content | Commands contain: `router`, `ospf`, `bgp`, or `isis` | high |
+| Command content | Commands contain: `shutdown` (but NOT `no shutdown` — restoration is excluded) | high |
 
 `assess_risk` is advisory only — it does not block changes. The user decides whether to proceed regardless of risk level.
 

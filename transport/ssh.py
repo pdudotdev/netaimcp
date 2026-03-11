@@ -12,20 +12,20 @@ from core.settings import (
 log = logging.getLogger("ainoc.transport.ssh")
 
 
-def _connection_params(device: dict) -> dict:
+def _connection_params(device: dict, timeout_ops: int | None = None) -> dict:
     return {
         "host":              device["host"],
         "platform":          device["platform"],
-        "transport":         device["transport"],
+        "transport":         "asyncssh",   # always SSH regardless of device's primary transport
         "auth_username":     USERNAME,
         "auth_password":     PASSWORD,
         "auth_strict_key":   SSH_STRICT_KEY,
         "timeout_transport": SSH_TIMEOUT_TRANSPORT,
-        "timeout_ops":       SSH_TIMEOUT_OPS,
+        "timeout_ops":       timeout_ops or SSH_TIMEOUT_OPS,
     }
 
 
-async def execute_ssh(device: dict, command: str) -> tuple[str, object]:
+async def execute_ssh(device: dict, command: str, timeout_ops: int | None = None) -> tuple[str, object]:
     """Execute a show command via Scrapli SSH.
 
     Returns (raw_output, parsed_output) where parsed_output is a Genie-parsed
@@ -36,7 +36,8 @@ async def execute_ssh(device: dict, command: str) -> tuple[str, object]:
     last_exc = None
     for attempt in range(1 + SSH_RETRIES):
         try:
-            async with AsyncScrapli(**_connection_params(device)) as conn:
+            async with AsyncScrapli(**_connection_params(device, timeout_ops=timeout_ops)) as conn:
+                log.debug("SSH → %s: %s", device["host"], command)
                 response = await conn.send_command(command)
                 raw_output = response.result
                 parsed_output = None

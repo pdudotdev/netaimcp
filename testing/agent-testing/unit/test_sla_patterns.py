@@ -27,12 +27,8 @@ SHOULD_MATCH = [
     # Cisco alternate phrasing
     "ip sla 1 changed state reachable to down",
     "ip sla 3 transition up to down",
-    # MikroTik Netwatch
-    "netwatch,info event down [ type: simple, host: 10.10.10.10 ]",
-    "netwatch event down host=192.168.1.1",
     # Case-insensitive variants
     "%TRACK-6-STATE: 1 ip sla 1 reachability Up -> DOWN",
-    "NETWATCH,INFO Event Down [ type: simple, host: 10.0.0.1 ]",
 ]
 
 # ── Messages that must NOT match ─────────────────────────────────────────────
@@ -53,8 +49,8 @@ SHOULD_NOT_MATCH = [
 
 @pytest.mark.parametrize("msg", SHOULD_MATCH)
 def test_matches_sla_down(msg):
-    """SLA_DOWN_RE must match all known Down event log formats across vendors.
-    Parametrized across Cisco IOS, Cisco alternate phrasing, MikroTik, and case variants.
+    """SLA_DOWN_RE must match all known Cisco IOS/IOS-XE Down event log formats.
+    Parametrized across Cisco IOS standard, alternate phrasing, and case variants.
     """
     assert SLA_DOWN_RE.search(msg), f"Expected match for: {msg!r}"
 
@@ -79,13 +75,8 @@ UP_SHOULD_MATCH = [
     # Cisco alternate phrasing
     "ip sla 1 changed state down to reachable",
     "ip sla 3 transition unreachable to up",
-    # MikroTik Netwatch bracket format
-    "netwatch,info event up [ type: simple, host: 10.10.10.10 ]",
-    # MikroTik Netwatch simple format (no brackets)
-    "netwatch event up host=192.168.1.1",
     # Case-insensitive variants
     "%TRACK-6-STATE: 1 ip sla 1 reachability Down -> UP",
-    "NETWATCH,INFO Event Up [ type: simple, host: 10.0.0.1 ]",
 ]
 
 # ── SLA_UP_RE: Messages that must NOT match ───────────────────────────────────
@@ -94,8 +85,6 @@ UP_SHOULD_NOT_MATCH = [
     # SLA going Down (not Up)
     "%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down",
     "ip sla 1 changed state reachable to down",
-    "netwatch,info event down [ type: simple, host: 10.10.10.10 ]",
-    "netwatch event down host=192.168.1.1",
     # Unrelated syslog messages
     "%SYS-5-CONFIG_I: Configured from console",
     "%LINEPROTO-5-UPDOWN: Line protocol on Interface Ethernet0/1, changed state to up",

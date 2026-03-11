@@ -20,7 +20,7 @@ Set in `.claude/settings.json`. Options: `haiku`, `sonnet`, `opus`.
 
 Tools are implemented in `tools/*.py` and registered in `MCPServer.py`.
 
-- **Protocol-specific tools**: `get_ospf`, `get_eigrp`, `get_bgp`
+- **Protocol-specific tools**: `get_ospf`, `get_bgp`
 - **Routing-specific tools**: `get_routing`, `get_routing_policies`
 - **Operational tools**: `ping`, `traceroute`, `get_interfaces`, `run_show`
 - **Configuration tools**: `push_config`, `check_maintenance_window`, `assess_risk`
@@ -37,9 +37,7 @@ Read the relevant skill **before** starting protocol-level investigation.
 | Situation | Skill File |
 |-----------|-----------|
 | OSPF issues | `skills/ospf/SKILL.md` |
-| EIGRP issues | `skills/eigrp/SKILL.md` |
 | BGP issues | `skills/bgp/SKILL.md` |
-| Redistribution issues | `skills/redistribution/SKILL.md` |
 | Path selection / PBR | `skills/routing/SKILL.md` |
 | On-Call SLA failure | `skills/oncall/SKILL.md` |
 
@@ -47,11 +45,16 @@ Read the relevant skill **before** starting protocol-level investigation.
 
 ## Platform Abstraction
 
-Maps `cli_style` to vendor-agnostic commands via `platforms/platform_map.py`.
+Maps `cli_style` to vendor-agnostic commands via `platforms/platform_map.py`. All devices are Cisco IOS/IOS-XE (Cisco-only architecture).
 
-- **"ios"**: Cisco IOS-XE — SSH/Scrapli
-- **"eos"**: Arista EOS — HTTPS eAPI
-- **"routeros"**: MikroTik RouterOS — HTTP REST API
+- **"ios" + asyncssh**: IOL devices (A1C, A2C, IAN, IBN) — Scrapli SSH + Genie parsing, CLI show/config strings.
+- **"ios" + restconf**: c8000v devices (C1C, C2C, E1C, E2C, X1C) — 2-tier transport: RESTCONF (primary) → SSH (fallback).
+
+`get_action(device, category, query)` from `platforms/platform_map.py` returns:
+- **AsyncSsh devices**: plain CLI string (resolved via `ios` section)
+- **Restconf devices**: `ActionChain` — an ordered list of `(transport_type, action)` pairs tried by the dispatcher until one succeeds. Tools (ping/traceroute) always return a plain CLI string.
+
+**Config push**: All devices use SSH CLI push (IOS commands). `push_config` works identically for all devices.
 
 ---
 

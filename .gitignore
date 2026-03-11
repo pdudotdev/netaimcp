@@ -3,11 +3,18 @@ mcp/
 *.pyc
 *.log
 **/.git/
-.claude/
 __pycache__/
-clab-mcp-lab/
+clab-ainoc/
 .MCPServer.py.swp
 testing/agent-testing/integration/test_mcp_tools_results.md
+testing/agent-testing/platform_tests/platform_coverage_results.md
+
+# Private keys and certificates — never commit to any repository
+# (clab-ainoc/ is already ignored above; this covers any stray key files)
+*.key
+*.pem
+*.pfx
+*.p12
 
 # On-call watcher operational state — runtime-only, never commit
 pending_events.json
@@ -17,3 +24,6 @@ oncall.lock
 # Proprietary behavioral artifacts — use .example.md versions as templates
 CLAUDE.md
 skills/*/SKILL.md
+
+# lab_configs/ IS committed intentionally as fallback topology backup for containerlab redeploy.
+# WARNING: In real production environments, NEVER commit device configs containing credentials.
