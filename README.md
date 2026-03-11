@@ -32,10 +32,10 @@
   - [🌱 AI Automation 101](#-ai-automation-101)
   - [📄 Disclaimer](#-disclaimer)
   - [📜 License](#-license)
-  - [📧 Professional Collaborations](#-professional-collaborations)
+  - [📧 Professional Collaborations](#-collaborations)
 
 ## 🔭 Overview
-AI-based **network troubleshooting framework** for multi-vendor, multi-protocol, multi-area/multi-AS, L2/L3 enterprise networks.
+AI-based **network troubleshooting framework** for multi-vendor, multi-protocol, multi-area/multi-AS enterprise networks.
 
 ▫️ **Key characteristics:**
 - [x] **Multi-vendor support**
@@ -268,8 +268,8 @@ You are responsible for defining your own troubleshooting methodologies and cont
 Licensed under the [**GNU GENERAL PUBLIC LICENSE Version 3**](https://github.com/pdudotdev/aiNOC/blob/main/LICENSE).
 
 ## 📧 Collaborations
-Interested in customizing and adapting **aiNOC** to your own network, or looking to collaborate long-term?
+Interested in collaborating?
 - **Email**:  
-  - Please direct your inquiries to **hello@ainoc.dev**.
+  - Reach out at **hello@ainoc.dev**.
 - **LinkedIn**:
   - Let's discuss via [**LinkedIn**](https://www.linkedin.com/in/tmihaicatalin/).
