@@ -227,7 +227,7 @@ This would catch typos at startup and serve as authoritative documentation of va
 | Core vendors | 1 (Cisco) | ~6+ before bottleneck #1 becomes relevant |
 | Transports | 2 (restconf, asyncssh) — 2-tier ActionChain for c8000v | Well under threshold |
 | Protocols per vendor | 4 (OSPF, BGP, routing table, routing policies) | ~10 before bottleneck #2 triggers |
-| Unit tests | 431 | Each new protocol adds ~10-20 tests |
-| Lines of Python | ~2,400 | Transport registry refactor relevant at 6+ vendors |
+| Unit tests | 444 | Each new protocol adds ~10-20 tests |
+| Lines of Python | ~3,000 | Transport registry refactor relevant at 6+ vendors |
 
 **Verdict:** The architecture is well within comfortable scaling bounds at 1 core vendor and 2 transports. Both dispatch bottlenecks are low priority — no refactoring needed until vendor count reaches 6+.

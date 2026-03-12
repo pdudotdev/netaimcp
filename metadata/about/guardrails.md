@@ -11,6 +11,7 @@ A structured overview of the architectural protections that prevent unsafe autom
 - Record must exist with `status: "APPROVED"`
 - `devices` in the approval record must **exactly match** (sorted) the devices being pushed to — pushing to unapproved devices is blocked even if an approval record exists for different devices
 - A record with `status: "EXECUTED"` (already consumed) blocks replay pushes
+- A record with `status: "SKIPPED"` (Discord not configured) also blocks pushes — no Discord = no push
 
 Without a valid approval record, `push_config` returns an error and no commands are sent to any device. This prevents config push even if prompt-level instructions are lost, ignored, or bypassed.
 
@@ -18,9 +19,11 @@ After a successful push, the record is marked `"EXECUTED"` — a second push req
 
 ## ✅ Discord-Primary Approval
 - **When Discord is configured**: `request_approval` posts a rich embed and polls for ✅/❌ emoji reaction (up to `APPROVAL_TIMEOUT_MINUTES`, default 10). The operator approves remotely via Discord.
-- **When Discord is not configured**: `request_approval` returns `"skipped"`. The agent logs to Jira that no approval channel is available and exits without pushing config.
-- **If Discord approval expires**: the expiry message is posted automatically to Discord. The agent logs to Jira that the approval window expired and exits.
-- `post_approval_outcome` posts the final outcome (approved+verified, rejected, expired) as a Discord reply after fix + verification
+- **When Discord is not configured**: `request_approval` writes a `SKIPPED` record (blocking the code gate) and returns `"skipped"`. The agent logs to Jira that no approval channel is available and exits without pushing config.
+- **If Discord approval expires**: the agent calls `post_approval_outcome(decision="expired")` to post the expiry outcome to Discord (with Jira ticket reference). The agent logs to Jira and exits.
+- **Investigation-started notification**: the watcher posts a blue informational Discord embed before the agent session begins, so the operator is aware immediately.
+- **Acknowledgment messages**: after ✅/❌ reaction, a confirmation reply is posted to Discord ("Approval received from @user…" / "Rejection received from @user…").
+- `post_approval_outcome` posts the final outcome (approved+verified, rejected, expired) as a Discord reply — includes Jira ticket reference from the approval state file.
 
 ## ✅ Prompt-Level No-Auto-Push Rule
 - CLAUDE.md Pitfall #16: "Never call `push_config` without approval"
@@ -197,17 +200,6 @@ Prevents:
 - Log pipeline (`/etc/vector/vector.yaml`)
 - Managed outside the agent
 - Cannot be corrupted or modified
-
----
-
-# 🔒 v5.0 Security Controls
-
-## ✅ Credential & Destructive Command Protection (Permission Deny Rules)
-- `.env` files blocked from `Read` and `Bash(cat)` — prevents credential exposure (router creds, Jira token)
-- `Bash(ssh *)` denied — enforces Pitfall #5 at permission level, not just prompt level
-- `Bash(rm -rf *)` denied — prevents catastrophic file deletion
-- `git push --force` and `git reset --hard` denied — prevents irreversible git operations
-- Defined in `.claude/settings.local.json` deny list
 
 ---
 

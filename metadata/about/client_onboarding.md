@@ -221,7 +221,7 @@ The codebase has solid abstraction layers (`platform_map.py`, `cli_style`, trans
 |---|-------|------|-----|--------|
 | 1 | `PLATFORM_MAP["ios_restconf"]` is hardcoded (line 139) — RESTCONF section key not dynamically constructed | `platforms/platform_map.py` | Add explicit RESTCONF branch: `f"{cli_style}_{transport}"` key lookup for non-IOS restconf devices | Low (1–2 h) |
 | 2 | Config push always uses SSH (`push_ssh()`) for all devices | `tools/config.py` | Add `config_push` category to PLATFORM_MAP; select push transport per `cli_style` | Medium (½ day) |
-| 3 | FORBIDDEN set is 23 IOS CLI patterns only | `tools/config.py` | Make FORBIDDEN a dict keyed by `cli_style`; each vendor has its own pattern set | Low (2–3 h) |
+| 3 | FORBIDDEN set is 21 IOS CLI patterns only | `tools/config.py` | Make FORBIDDEN a dict keyed by `cli_style`; each vendor has its own pattern set | Low (2–3 h) |
 | 4 | `_execute_single()` has hard `if/elif` for `asyncssh` / `restconf` only | `transport/__init__.py` | Registry pattern: `TRANSPORT_REGISTRY = {"asyncssh": fn, "restconf": fn, "eapi": fn, ...}` | Low (2–3 h) |
 | 5 | Single global credentials (`ROUTER_USERNAME` / `ROUTER_PASSWORD` at import time) | `core/settings.py` | Per-platform env var fallback (short-term); `get_credentials(device)` → Vault (with Vault integration) | Medium (Vault is separate feature) |
 

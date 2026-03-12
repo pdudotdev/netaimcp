@@ -267,10 +267,14 @@ _ANSI_RE = re.compile(
 
 
 def _clean_session_log(path: Path) -> None:
-    """Strip ANSI escape sequences from a session log file in-place."""
+    """Strip ANSI escape sequences and non-printable characters from a session log."""
     try:
         raw = path.read_text(errors="replace")
+        # Pass 1: strip ESC-prefixed sequences (CSI, OSC, Fe)
         cleaned = _ANSI_RE.sub("", raw)
+        # Pass 2: strip remaining non-printable chars (bare BEL, NUL, partial sequences)
+        # Keep: \t (0x09), \n (0x0a), \r (0x0d), and printable ASCII 0x20-0x7e
+        cleaned = re.sub(r"[^\x09\x0a\x0d\x20-\x7e]", "", cleaned)
         if cleaned != raw:
             path.write_text(cleaned)
             _wlog.debug("Session log cleaned: %s", path.name)

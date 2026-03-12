@@ -1,7 +1,7 @@
 # ✨ aiNOC
 
 **aiNOC:**<br/>
-[![Latest Release](https://img.shields.io/badge/version-5.2.0-blue.svg)](https://github.com/pdudotdev/aiNOC/releases/tag/5.2.0) [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/aiNOC)](https://github.com/pdudotdev/aiNOCcommits/main/)
+[![Latest Release](https://img.shields.io/badge/version-5.3.0-blue.svg)](https://github.com/pdudotdev/aiNOC/releases/tag/5.3.0) [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/aiNOC)](https://github.com/pdudotdev/aiNOCcommits/main/)
 
 **Core version vendors:**<br/>
 ![Cisco IOS-XE](https://img.shields.io/badge/Cisco-IOS--XE-0176C1)
@@ -195,7 +195,7 @@ python3 oncall/watcher.py
 ```
 
 ♻️ **Service** (production): install once, runs permanently, survives reboots. Each agent session
-spawns in a **tmux** window — attach with `tmux attach -t <session_name>`.
+spawns in a **tmux** window. Session output is saved to `logs/session-oncall-<timestamp>.md`.
 ```bash
 sudo apt install tmux
 sudo cp oncall/oncall-watcher.service /etc/systemd/system/
@@ -252,7 +252,7 @@ The watcher always runs in service mode — Claude is invoked non-interactively 
 | `python3 oncall/watcher.py` | Run directly (dev/test) |
 | `systemctl start oncall-watcher` | Run as systemd service (production) |
 
-The operator interacts exclusively via **Discord** (approval/rejection embeds). Live session observation: `tmux attach -t <session_name>`. Full session output saved to `logs/session-oncall-<timestamp>.md`.
+The operator interacts exclusively via **Discord** (approval/rejection embeds). Full session output saved to `logs/session-oncall-<timestamp>.md`.
 
 ▫️ See [Installation & Usage](#️-installation--usage) for setup instructions.
 

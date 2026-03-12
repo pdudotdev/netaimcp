@@ -480,8 +480,8 @@ def test_request_approval_does_not_auto_post_on_approved(monkeypatch, tmp_path):
     mock_post_outcome.assert_not_called()
 
 
-def test_request_approval_auto_posts_expiry_outcome(monkeypatch, tmp_path):
-    """request_approval must automatically post expiry outcome to Discord when decision=expired."""
+def test_request_approval_expired_does_not_auto_post_outcome(monkeypatch, tmp_path):
+    """request_approval must NOT auto-post expiry outcome — agent handles it via post_approval_outcome."""
     monkeypatch.setenv("DISCORD_BOT_TOKEN", "tok")
     monkeypatch.setenv("DISCORD_CHANNEL_ID", "chan123")
 
@@ -504,10 +504,8 @@ def test_request_approval_auto_posts_expiry_outcome(monkeypatch, tmp_path):
                     result = run(request_approval(params))
 
     assert result["decision"] == "expired"
-    mock_post_outcome.assert_awaited_once_with(
-        original_message_id="msgExpiry",
-        decision="expired",
-    )
+    # Auto-post removed — the agent calls post_approval_outcome after receiving "expired"
+    mock_post_outcome.assert_not_called()
 
 
 def test_request_approval_honours_env_timeout(monkeypatch, tmp_path):

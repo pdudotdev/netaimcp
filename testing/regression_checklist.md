@@ -31,6 +31,8 @@ Run this checklist after any significant change to `MCPServer.py`, `oncall/watch
 | `test_config_push.py` | push_config: forbidden commands, rollback advisory, mixed cli_style guard |
 | `test_tool_layer.py` | Tool dispatch: get_ospf/bgp/routing/interfaces, ping/traceroute always CLI, run_show guard |
 | `test_jira_tools.py` | jira_add_comment / jira_resolve_issue: success, exception handling, unconfigured skip |
+| `test_approval.py` | Discord approval: request_approval (configured/not), poll results, expiry, env timeout override, post_approval_outcome |
+| `test_config_approval_gate.py` | push_config approval gate: no record, bad status (incl. SKIPPED), replay, device mismatch, success, EXECUTED marking |
 
 **Integration test coverage (requires running lab):**
 

@@ -4,6 +4,35 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [v5.3.0]
+
+### 🔒 Agent Session Safety
+- **Agent timeout**: `_wait_for_tmux_process_exit()` now enforces a deadline (default 30 min). If Claude doesn't exit within the timeout, the tmux session is force-killed via `tmux kill-session`, the watcher logs a warning, and the lock file is released so new sessions can proceed. Configurable via `AGENT_TIMEOUT_MINUTES` env var.
+- **tmux session cleanup**: after the agent exits and the session log is cleaned, the tmux session is explicitly killed (`tmux kill-session`). Sessions no longer accumulate indefinitely. Full output is preserved in `logs/session-oncall-<timestamp>.md`.
+
+### 📢 Discord UX Improvements
+- **Investigation-started notification**: when the watcher spawns an agent session, it immediately posts a blue informational embed to Discord ("🚨 NEW ISSUE: DEVICE {name} — Investigation Started") so the operator is notified before the investigation even begins.
+- **Acknowledgment messages**: after the operator reacts with ✅ or ❌, a confirmation reply is posted ("Approval received from @user — aiNOC is proceeding with the fix." / "Rejection received from @user — aiNOC will not apply the fix.").
+- **Jira ticket in outcome embeds**: `post_approval_outcome` now reads the issue key from the approval state file and includes a "Ticket SUP-xx updated" field in the Discord outcome embed.
+- **Removed duplicate expiry message**: `request_approval` no longer auto-posts an expiry outcome. All outcome posts (approved, rejected, expired) are handled by the agent via `post_approval_outcome`, which includes the Jira ticket reference. Previously, expiry caused two identical-looking Discord messages.
+
+### 🧹 Session Log Cleanup
+- **ANSI escape sequence stripping**: `_clean_session_log()` now performs a two-pass cleanup. Pass 1: regex strips ESC-prefixed sequences (CSI, OSC, Fe). Pass 2: removes all remaining non-printable characters (bare BEL, NUL, partial sequence fragments). Session logs are now clean plain text.
+- **Desktop notification simplified**: `notify_operator()` now sends a single-line `notify-send` popup only. Terminal writes (`/dev/pts`) were removed in v5.2.0; redundant "Attach with: tmux attach" line also removed.
+
+### 🔒 Approval Gate Hardening
+- When Discord is not configured, `request_approval` writes `status: "SKIPPED"` (previously was writing `APPROVED`). The `push_config` gate rejects SKIPPED status — no Discord = no push, enforced at code level.
+- Integration tests updated: `_approve_devices()` helper writes a valid APPROVED record before each `push_config` call so the gate passes in test context.
+- New env var: `AGENT_TIMEOUT_MINUTES=30`
+
+### 🧪 Testing
+- UT-017 (`test_approval.py`): SKIPPED status assertion added; `post()` method added to MockSessions for ack message tests; `post_approval_outcome` tests updated for Jira `issue_key` param.
+- UT-018 (`test_config_approval_gate.py`): SKIPPED added to bad-status parametrize list.
+- Integration tests (`test_mcp_tools.py`): all 8 push_config tests now call `_approve_devices()` before each push.
+- 430 → 443 total tests passing.
+
+---
+
 ## [v5.2.0]
 
 ### 📟 Discord Remote Approval
@@ -31,7 +60,7 @@ All notable changes to this project are documented in this file.
 - **Single code path**: `--service` flag removed from `watcher.py` and systemd `ExecStart`. tmux is now a hard requirement checked at startup.
 - **Session output logging**: each session's full output is streamed via `tmux pipe-pane` to `logs/session-oncall-<timestamp>.md` for post-incident review.
 - **Watcher resumes monitoring immediately** after Claude exits — `_wait_for_tmux_process_exit()` polls `pane_dead` so `remain-on-exit on` sessions don't block the watcher.
-- **tmux session persists** after Claude exits (`remain-on-exit on`) so operators can attach later to review the full investigation history.
+- **tmux session cleanup**: after Claude exits and the session log is cleaned, the watcher kills the tmux session (`tmux kill-session`). Full session output is preserved in `logs/session-oncall-<timestamp>.md`. (Note: `remain-on-exit on` is still set to keep the pane alive until the watcher's cleanup runs.)
 
 ### 🗑️ Deferred Investigation Sessions Removed
 - `invoke_deferred_review()` deleted — no second agent session is spawned for deferred failures.

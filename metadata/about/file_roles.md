@@ -185,13 +185,15 @@ tools/
     protocol.py       — get_ospf, get_bgp
     routing.py        — get_routing, get_routing_policies
     operational.py    — get_interfaces, ping, traceroute, run_show
-    config.py         — push_config, validate_commands, FORBIDDEN
+    config.py         — push_config, validate_commands, FORBIDDEN, approval gate
     state.py          — get_intent, assess_risk
     jira_tools.py     — jira_add_comment, jira_resolve_issue
-core/inventory.py     — device inventory loader (NETWORK.json)
-core/settings.py      — credentials and transport configuration
-core/logging_config.py — JSONFormatter, ainoc.* logger hierarchy
-core/jira_client.py   — async Jira REST v3 client
+    approval.py       — request_approval, post_approval_outcome (MCP tools)
+core/inventory.py         — device inventory loader (NETWORK.json)
+core/settings.py          — credentials and transport configuration
+core/logging_config.py    — JSONFormatter, ainoc.* logger hierarchy
+core/jira_client.py       — async Jira REST v3 client
+core/discord_approval.py  — Discord API: post_approval_request, poll_for_reaction, post_outcome, post_investigation_started, post_deferred_list
 input_models/models.py — all Pydantic input models
 ```
 

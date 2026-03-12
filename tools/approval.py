@@ -140,18 +140,9 @@ async def request_approval(params: ApprovalInput) -> dict:
         state["decided_by"] = result.get("approved_by") or result.get("rejected_by")
         _write_state(state)
 
-        # Auto-post expiry outcome to Discord — expiry is terminal so there is no
-        # verification step for the agent to wait for. Approved/rejected decisions
-        # are posted later via post_approval_outcome (after fix + verification).
-        if result["decision"] == "expired":
-            try:
-                await post_outcome(
-                    original_message_id=message_id,
-                    decision="expired",
-                )
-            except Exception as e:
-                log.warning("Failed to post Discord expiry outcome: %s", e)
-
+        # All outcome posts (approved, rejected, expired) are handled by the agent
+        # via post_approval_outcome — this ensures the Jira ticket reference and
+        # verification result are included in the outcome embed.
         return result
 
     except Exception as e:

@@ -129,7 +129,7 @@ Claude Code session opens automatically in the terminal where `oncall/watcher.py
 5. Calls `get_ospf(A1C, "neighbors")` → C1C and C2C missing
 6. Calls `get_ospf(A1C, "interfaces")` → shows `passive` on the core-facing interface
 7. Proposes removing passive-interface on A1C
-8. Asks user approval (displayed in the agent session)
+8. Requests operator approval via Discord (posts embed with ✅/❌ reactions)
 9. Applies fix, verifies A1C route to 10.0.0.26 returns
 10. Documents the issue to the Jira ticket (if Jira is configured)
 
@@ -217,11 +217,10 @@ Verify:
 1. A tmux session named `oncall-<timestamp>` is created: `tmux list-sessions | grep oncall`
 2. `logs/oncall_watcher.log` shows: `Agent invoked in tmux session: oncall-<timestamp>` and `Session log: logs/session-oncall-<timestamp>.md`
 3. A notification is written to all open terminals and a desktop popup appears (if `notify-send` is available)
-4. Attach to observe live: `tmux attach -t oncall-<timestamp>` (read-only — agent runs in print mode)
-5. Agent completes and auto-exits — **no `/exit` needed**
-6. Watcher resumes monitoring: `Agent session ended.` then `Resuming monitoring.` in log, no dangling lock file
-7. Session log exists and contains agent output: `cat logs/session-oncall-<timestamp>.md`
-8. tmux session persists after agent exits (remain-on-exit) for post-incident review
+4. Agent completes and auto-exits — **no `/exit` needed**
+5. Watcher resumes monitoring: `Agent session ended.` then `Resuming monitoring.` in log, no dangling lock file
+6. Session log exists and contains agent output: `cat logs/session-oncall-<timestamp>.md`
+7. tmux session is **killed** after cleanup — session log preserves all output for post-incident review
 
 #### B) Systemd service
 

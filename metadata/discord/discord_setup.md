@@ -70,7 +70,7 @@ Still on the **Bot** tab, scroll to **Bot Permissions**. Check **only** these 5 
 - ✅ Embed Links
 - ✅ Read Message History
 - ✅ Add Reactions
-- ✅ Manage Messages *(for editing the outcome reply)*
+- ✅ Manage Messages *(optional — not required; bot posts new reply messages, not edits)*
 
 Leave all General, Voice, and other Text permissions **unchecked**.
 
@@ -179,7 +179,21 @@ Expected: a Discord embed appears in `#noc-approvals` with ✅ and ❌ reactions
 | `DISCORD_CHANNEL_ID` | Yes (if using Discord) | Channel ID of `#noc-approvals` |
 | `APPROVAL_TIMEOUT_MINUTES` | No (default: 10) | Minutes to wait before expiring |
 
-If `DISCORD_BOT_TOKEN` or `DISCORD_CHANNEL_ID` is missing, `request_approval` returns `{"decision": "skipped"}` and the agent logs to Jira that no approval channel is configured, then exits without pushing config. Configure Discord to enable remote approval.
+If `DISCORD_BOT_TOKEN` or `DISCORD_CHANNEL_ID` is missing, `request_approval` writes a `SKIPPED` record and returns `{"decision": "skipped"}`. The `push_config` code gate blocks any push when status is SKIPPED — no Discord = no push. Configure Discord to enable remote approval.
+
+---
+
+## Discord Notifications Summary
+
+The bot posts the following messages to your channel:
+
+| Event | Color | Function |
+|-------|-------|----------|
+| Investigation started | 🔵 Blue | `post_investigation_started()` — posted by the watcher before the agent session begins |
+| Approval request | Risk-colored | `post_approval_request()` — includes findings, commands, devices, risk level; adds ✅/❌ reactions |
+| Approval acknowledgment | (plain text reply) | Posted inline when operator reacts — confirms receipt immediately |
+| Fix outcome | Green/Orange/Red | `post_approval_outcome()` — posted after fix + verification; includes Jira ticket reference |
+| Deferred failures | 🟠 Orange | `post_deferred_list()` — informational embed posted after session ends if concurrent failures were deferred |
 
 ---
 
