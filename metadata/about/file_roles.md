@@ -146,10 +146,10 @@ Contains:
 
 - 6-principle troubleshooting methodology
 - On-Call workflow (primary mode)
-- Complete MCP tool list (13 tools)
+- Complete MCP tool list (15 tools)
 - Lessons curation process
 - Case management workflow
-- 15 common pitfalls to avoid
+- 17 common pitfalls to avoid
 
 Everything the agent needs to operate lives here.
 
@@ -225,10 +225,24 @@ Acts as the handoff from passive monitoring to active investigation.
 
 Records:
 
-- SLA failures detected  
-- Jira tickets created  
-- Sessions started  
+- SLA failures detected
+- Jira tickets created
+- Sessions started
 
 Useful for:
-- Debugging watcher issues  
-- Reviewing historical alert patterns  
+- Debugging watcher issues
+- Reviewing historical alert patterns
+
+---
+
+## ✅ `logs/session-oncall-<timestamp>.md` (gitignored)
+
+**Purpose:** Per-session agent output log.
+
+Each On-Call session's full CLI output is streamed here via `tmux pipe-pane`. Captures everything the agent printed — investigation steps, tool results, findings table, summary.
+
+Use for post-incident review when you weren't watching live:
+```
+tmux attach -t oncall-<timestamp>    # live observation (if session still open)
+cat logs/session-oncall-<timestamp>.md   # post-incident review
+```

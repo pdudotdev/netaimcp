@@ -57,14 +57,14 @@ tail -f /var/log/network.json
 
 Monitor the watcher log in another terminal:
 ```bash
-tail -f /home/mcp/mcp-project/logs/oncall_watcher.log
+tail -f /home/mcp/aiNOC/logs/oncall_watcher.log
 ```
 
 ---
 
-### OC-001 — Full On-Call Pipeline (SLA Failure → Diagnosis → Fix → Deferred Queue)
+### OC-001 — Full On-Call Pipeline (SLA Failure → Diagnosis → Fix → Deferred Documentation)
 
-**Tests**: Full watcher pipeline, agent investigation, fix verification, deferred queue, Jira documentation
+**Tests**: Full watcher pipeline, agent investigation, fix verification, deferred documentation, Jira documentation
 
 Run this test manually for Tier 1 regression and full pipeline validation.
 
@@ -73,7 +73,7 @@ Run this test manually for Tier 1 regression and full pipeline validation.
 #### OSPF Passive Interface Break (A1C)
 
 **SLA Path**: `A1C_TO_IAN` | **Break device**: A1C | **SLA source**: A1C (172.20.20.205)
-**Implicit**: A1C has a second SLA probe (SLA 2) that also fires — validates deferred queue with concurrent failures
+**Implicit**: A1C has a second SLA probe (SLA 2) that also fires — validates deferred documentation with concurrent failures
 
 ##### Setup (break)
 
@@ -170,45 +170,22 @@ router ospf 1
 
 ---
 
-#### Recovered Path Handling
+#### Deferred Failure Documentation
 
-**Purpose**: Validate the 2-option prompt when a deferred path has already recovered by the time it's investigated.
+**Purpose**: Validate that concurrent SLA events during an active session are documented to Jira and Discord after the session ends.
 
-After the first case is resolved and the deferred session starts:
-- If the deferred path has recovered (traceroute completes, interfaces up, neighbors present), the agent must present:
-  ```
-  A) Skip — path recovered, no action needed
-  B) Investigate anyway — run full diagnostics despite recovery
-  ```
-- Pick **A**: verify the agent says "Path recovered, skipping." and immediately returns to the remaining deferred failures list (no Jira update, no lessons evaluation for this item)
-- Pick **B**: verify the agent proceeds with full Step 2.5 diagnostics
+**Reason**: The setup above breaks at least two SLA paths at once. The agent is invoked for the **first failure only**. If a second failure occurs during the investigation of the first, the watcher logs it as SKIPPED — no second agent session is spawned.
 
----
-
-#### Deferred Queue Handling
-
-**Purpose**: Validate that concurrent SLA events during an active session are deferred and surfaced in a follow-up review session.
-
-**Reason**: The setup above breaks at least two SLA paths at once. The agent is invoked for the **first failure only**. If a second failure occurs during the investigation of the first, the watcher skips it — this prevents agent storms during outages.
-
-11. After the fix for the first failure is applied and documentation written, type `/exit`
-12. Check second event logged as `SKIPPED (deferred - occurred during active session)` in `logs/oncall_watcher.log`:
+11. After the agent session completes (auto-exits in print mode), verify in `logs/oncall_watcher.log`:
 ```
-[2026-03-01 07:53:52 UTC] SKIPPED (deferred - occurred during active session) - A1C (172.20.20.205): BOM%TRACK-6-STATE: 2 ip sla 2 reachability Up -> Down
+SKIPPED (deferred - occurred during active session) - A1C (172.20.20.205): BOM%TRACK-6-STATE: 2 ip sla 2 reachability Up -> Down
+Documenting 1 deferred failure(s) to Jira/Discord
+Deferred failures documented to Jira ticket <key>
+Deferred failures posted to Discord
+Resuming monitoring.
 ```
-13. After first agent session closes, a **second agent session** opens automatically with the deferred review prompt:
-```
-During the previous On-Call session the following SLA path failures were detected but could not be investigated at the time (logged as SKIPPED in logs/oncall_watcher.log):
-
-1. A1C (172.20.20.205): BOM%TRACK-6-STATE: 2 ip sla 2 reachability Up -> Down (at 2026-03-01T07:26:09.841Z)
-
-Would you like to investigate any of these? Reply with a number, 'all', or 'none'.
-```
-14. If multiple SLA path failures occurred during the initial investigation, they are all listed. The user can enter a number to investigate a specific one, `all`, or `/exit` to skip.
-15. After the deferred review session closes, watcher resumes monitoring:
-```
-[Watcher] Deferred review session ended. Resuming monitoring
-```
+12. Verify Jira: original ticket has a new comment titled "Deferred SLA Failures" listing the concurrent events
+13. Verify Discord: an orange informational embed "⚠️ Deferred SLA Failures" appears in the channel with the event list
 
 ---
 
@@ -218,22 +195,18 @@ Would you like to investigate any of these? Reply with a number, 'all', or 'none
 
 These checks can be done without breaking lab config.
 
-### WB-004 — Service Mode (tmux Session) ★ Primary Mode
+### WB-004 — tmux Session + Session Logging ★ Primary Mode
 
-**This is the primary production deployment mode. Always verify this first.**
+**This is the only mode. Always verify this first.**
 
-The watcher is installed as a systemd service (`oncall-watcher.service`) which passes `--service` to
-`watcher.py`. In service mode, every agent session runs in a detached tmux window so the watcher
-process is never blocked by user interaction.
+The watcher always runs Claude in tmux + print mode (`-p`). Claude auto-exits when done. No interactive CLI or `--service` flag.
 
 #### A) Manual invocation (dev/testing)
 
-Start the watcher manually in service mode:
+Start the watcher:
 ```bash
-python3 oncall/watcher.py --service
+python3 oncall/watcher.py
 ```
-
-Expected at startup: `Watcher started in SERVICE mode` in `logs/oncall_watcher.log`.
 
 Inject an SLA Down event:
 ```bash
@@ -241,21 +214,21 @@ echo '{"ts":"2026-01-01T00:00:00Z","device":"172.20.20.205","msg":"%TRACK-6-STAT
 ```
 
 Verify:
-1. A tmux session named `oncall-*` is created: `tmux list-sessions | grep oncall`
-2. `logs/oncall_watcher.log` shows: `Agent invoked in tmux session: oncall-<timestamp>`
+1. A tmux session named `oncall-<timestamp>` is created: `tmux list-sessions | grep oncall`
+2. `logs/oncall_watcher.log` shows: `Agent invoked in tmux session: oncall-<timestamp>` and `Session log: logs/session-oncall-<timestamp>.md`
 3. A notification is written to all open terminals and a desktop popup appears (if `notify-send` is available)
-4. Attach to the session: `tmux attach -t oncall-<timestamp>`
-5. Agent session is running with the SLA failure prompt
-6. **Scrollback**: press `Ctrl+B` then `[` to enter scroll mode (arrow keys or mouse scroll), `q` to exit scroll mode
-7. Type `/exit` in the agent session — tmux session closes
-8. Watcher resumes monitoring: `Agent session ended.` in log, no dangling lock file
+4. Attach to observe live: `tmux attach -t oncall-<timestamp>` (read-only — agent runs in print mode)
+5. Agent completes and auto-exits — **no `/exit` needed**
+6. Watcher resumes monitoring: `Agent session ended.` then `Resuming monitoring.` in log, no dangling lock file
+7. Session log exists and contains agent output: `cat logs/session-oncall-<timestamp>.md`
+8. tmux session persists after agent exits (remain-on-exit) for post-incident review
 
 #### B) Systemd service
 
 ```bash
 sudo systemctl status oncall-watcher.service
 ```
-Expected: `Active: active (running)` and `ExecStart` shows `watcher.py --service`.
+Expected: `Active: active (running)` and `ExecStart` shows `watcher.py` (no `--service` flag).
 
 To restart after code changes:
 ```bash
@@ -263,14 +236,14 @@ sudo systemctl restart oncall-watcher.service
 sudo journalctl -u oncall-watcher -f
 ```
 
-#### C) Deferred queue in service mode
+#### C) Deferred documentation
 
 Run the OC-001 break scenario (passive-interface on A1C) to generate concurrent SLA failures.
 Verify:
-1. First failure → agent in `oncall-<ts>` tmux session
+1. First failure → agent in `oncall-<ts>` tmux session, auto-exits when done
 2. Second failure → logged as `SKIPPED (deferred)` in watcher log
-3. After first session closes → deferred review in `oncall-deferred-<ts>` tmux session
-4. User presented with list of deferred failures, options to investigate or `/exit`
+3. After first session → watcher logs `Documenting N deferred failure(s) to Jira/Discord` then `Resuming monitoring.`
+4. No second tmux session spawned — deferred failures documented via Jira comment + Discord embed only
 
 #### D) SSH retry transparency
 

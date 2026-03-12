@@ -8,7 +8,7 @@ Run this checklist after any significant change to `MCPServer.py`, `oncall/watch
 | 1 | All unit tests pass | — | `./run_tests.sh unit` |
 | 2 | Integration tests pass (lab required) | — | `./run_tests.sh integration` |
 | 3 | Full On-Call pipeline (passive-interface) | 1 | OC-001 Primary |
-| 4 | Service mode (tmux session, operator notification, deferred queue) | 2 | WB-004 |
+| 4 | tmux session created, operator notification, session log saved to logs/ | 2 | WB-004 |
 
 **NOTE:** On-Call cases are documented as Jira tickets (see Jira project SUP).
 

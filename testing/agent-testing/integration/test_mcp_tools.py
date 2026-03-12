@@ -95,6 +95,21 @@ def record_crud(section: str, test_name: str, device: str, phases: dict):
     })
 
 
+def _approve_devices(devices: list[str]) -> None:
+    """Write a valid APPROVED record so push_config's approval gate passes.
+
+    The gate marks the record EXECUTED after each push, so this must be called
+    before every push_config invocation (including cleanup/delete calls).
+    """
+    approval_file = PROJECT_ROOT / "data" / "pending_approval.json"
+    approval_file.parent.mkdir(exist_ok=True)
+    approval_file.write_text(json.dumps({
+        "request_id": "integration-test",
+        "status": "APPROVED",
+        "devices": devices,
+    }, indent=2))
+
+
 @pytest.fixture(autouse=True, scope="session")
 def write_results_file():
     """Yield to let all tests run, then write collected results to Markdown."""
@@ -286,6 +301,7 @@ def test_push_config_ios_ssh():
         "ip address 10.99.99.1 255.255.255.255",
         "no shutdown",
     ]
+    _approve_devices([device])
     create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds)))
     phases["Create"] = create_result
     assert device in create_result, f"Expected {device} key in push_config result"
@@ -299,6 +315,7 @@ def test_push_config_ios_ssh():
     finally:
         # Delete Loopback99 (always runs for cleanup)
         delete_cmds = ["no interface Loopback99"]
+        _approve_devices([device])
         delete_result = run(push_config(ConfigCommand(devices=[device], commands=delete_cmds)))
         phases["Delete"] = delete_result
 
@@ -316,6 +333,7 @@ def test_push_config_ios_restconf():
         "ip address 10.99.99.1 255.255.255.255",
         "no shutdown",
     ]
+    _approve_devices([device])
     create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds)))
     phases["Create"] = create_result
     assert device in create_result, f"Expected {device} key in push_config result"
@@ -331,6 +349,7 @@ def test_push_config_ios_restconf():
     finally:
         # Delete Loopback99 (always runs for cleanup)
         delete_cmds = ["no interface Loopback99"]
+        _approve_devices([device])
         delete_result = run(push_config(ConfigCommand(devices=[device], commands=delete_cmds)))
         phases["Delete"] = delete_result
 
@@ -349,6 +368,7 @@ def test_push_description_ios_ssh():
         "description INTTEST-MARKER",
         "no shutdown",
     ]
+    _approve_devices([device])
     create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds)))
     phases["Create"] = create_result
     assert device in create_result, f"Expected {device} key in push_config result"
@@ -360,6 +380,7 @@ def test_push_description_ios_ssh():
         assert "Loopback97" in text, f"Loopback97 not found after creation: {text[:300]}"
         assert "INTTEST-MARKER" in text, f"Description INTTEST-MARKER not found: {text[:300]}"
     finally:
+        _approve_devices([device])
         delete_result = run(push_config(ConfigCommand(devices=[device], commands=["no interface Loopback97"])))
         phases["Delete"] = delete_result
 
@@ -376,6 +397,7 @@ def test_push_description_ios_restconf():
         "description INTTEST-MARKER",
         "no shutdown",
     ]
+    _approve_devices([device])
     create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds)))
     phases["Create"] = create_result
     assert device in create_result, f"Expected {device} key in push_config result"
@@ -389,6 +411,7 @@ def test_push_description_ios_restconf():
         assert "Loopback97" in text, f"Loopback97 not found after creation: {text[:300]}"
         assert "INTTEST-MARKER" in text, f"Description INTTEST-MARKER not found: {text[:300]}"
     finally:
+        _approve_devices([device])
         delete_result = run(push_config(ConfigCommand(devices=[device], commands=["no interface Loopback97"])))
         phases["Delete"] = delete_result
 
@@ -404,6 +427,7 @@ def test_push_acl_ios_ssh():
         "ip access-list standard INTTEST-ACL",
         "permit 192.168.254.0 0.0.0.255",
     ]
+    _approve_devices([device])
     create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds)))
     phases["Create"] = create_result
     assert device in create_result, f"Expected {device} key in push_config result"
@@ -414,6 +438,7 @@ def test_push_acl_ios_ssh():
         text = str(verify_result)
         assert "INTTEST-ACL" in text, f"INTTEST-ACL not found after creation: {text[:300]}"
     finally:
+        _approve_devices([device])
         delete_result = run(push_config(ConfigCommand(devices=[device], commands=["no ip access-list standard INTTEST-ACL"])))
         phases["Delete"] = delete_result
 
@@ -431,6 +456,7 @@ def test_push_prefix_list_ios_restconf():
     phases = {}
 
     create_cmds = ["ip prefix-list INTTEST-PFX seq 10 permit 192.168.254.0/24"]
+    _approve_devices([device])
     create_result = run(push_config(ConfigCommand(devices=[device], commands=create_cmds)))
     phases["Create"] = create_result
     assert device in create_result, f"Expected {device} key in push_config result"
@@ -441,6 +467,7 @@ def test_push_prefix_list_ios_restconf():
         text = str(verify_result)
         assert "INTTEST-PFX" in text, f"INTTEST-PFX not found after creation: {text[:300]}"
     finally:
+        _approve_devices([device])
         delete_result = run(push_config(ConfigCommand(devices=[device], commands=["no ip prefix-list INTTEST-PFX"])))
         phases["Delete"] = delete_result
 
@@ -457,6 +484,7 @@ def test_push_multi_device_ssh():
         "ip address 10.98.98.1 255.255.255.255",
         "no shutdown",
     ]
+    _approve_devices(devices_list)
     create_result = run(push_config(ConfigCommand(devices=devices_list, commands=create_cmds)))
     phases["Create"] = create_result
     for d in devices_list:
@@ -469,6 +497,7 @@ def test_push_multi_device_ssh():
             text = str(verify_result)
             assert "Loopback98" in text, f"Loopback98 not found on {d} after creation: {text[:300]}"
     finally:
+        _approve_devices(devices_list)
         delete_result = run(push_config(ConfigCommand(devices=devices_list, commands=["no interface Loopback98"])))
         phases["Delete"] = delete_result
 
@@ -485,6 +514,7 @@ def test_push_multi_device_restconf():
         "ip address 10.98.98.1 255.255.255.255",
         "no shutdown",
     ]
+    _approve_devices(devices_list)
     create_result = run(push_config(ConfigCommand(devices=devices_list, commands=create_cmds)))
     phases["Create"] = create_result
     for d in devices_list:
@@ -499,6 +529,7 @@ def test_push_multi_device_restconf():
             text = str(verify_result)
             assert "Loopback98" in text, f"Loopback98 not found on {d} after creation: {text[:300]}"
     finally:
+        _approve_devices(devices_list)
         delete_result = run(push_config(ConfigCommand(devices=devices_list, commands=["no interface Loopback98"])))
         phases["Delete"] = delete_result
 

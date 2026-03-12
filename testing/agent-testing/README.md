@@ -48,6 +48,8 @@ chmod +x run_tests.sh
 | UT-014 | unit/test_config_push.py | push_config: forbidden commands, rollback advisory, mixed cli_style guard |
 | UT-015 | unit/test_tool_layer.py | Tool dispatch: protocol/routing/operational tools, ping/traceroute CLI enforcement |
 | UT-016 | unit/test_jira_tools.py | Jira tools: add_comment/resolve_issue success/error/no-key paths |
+| UT-017 | unit/test_approval.py | Discord approval: request_approval (configured/not), poll results, expiry, env timeout override, post_approval_outcome |
+| UT-018 | unit/test_config_approval_gate.py | push_config approval gate: no record, bad status (incl. SKIPPED), replay, device mismatch, success, EXECUTED marking |
 
 ### Integration Tests (read-only, real devices)
 | ID | File | Description |

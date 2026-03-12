@@ -3,10 +3,28 @@
 Curated from resolved cases. Agent updates this file after each case closure.
 Read this file at session start. For detailed case history, refer to Jira tickets.
 
-Maximum 10 entries. Each entry: one actionable lesson in 1-2 lines.
+Maximum 10 entries. Each entry: one actionable lesson in 1-3 lines.
 
 ### Promotion Criteria
-A lesson belongs here if it: (1) applies broadly to future cases, (2) corrects a methodology mistake, and (3) isn't already captured above.
+
+**Add a lesson when ALL of these apply:**
+1. **Broadly applicable** — the lesson would help diagnose or avoid a class of issues, not just one specific device or config
+2. **Non-obvious** — the root cause or diagnostic shortcut wasn't predictable from CLAUDE.md principles alone
+3. **Not already captured** — no existing entry covers the same insight (scan all entries before adding)
+
+**Replace an existing entry when:**
+- The file has 10 entries AND the new lesson is more broadly applicable than the weakest existing one
+- Remove the weakest entry (most narrow or device-specific) and add the new one
+
+**Do NOT add a lesson for:**
+- Routine findings with no surprising diagnostic insight (e.g., "interface was admin-shutdown")
+- Transient or self-resolved issues with no actionable takeaway
+- Issues caused by lab setup or intentional test scenarios
+- Fixes already obvious from the 6 Core Principles or protocol skill checklists
+
+**Lesson format:**
+- Lead with the diagnostic insight or decision rule, not the story
+- Include the symptom pattern that triggers the lesson (so the agent recognizes it next time)
 
 ---
 
@@ -28,4 +46,4 @@ A lesson belongs here if it: (1) applies broadly to future cases, (2) corrects a
 
 9. **Aggressive BGP hold timers cause dual-ISP session flapping**: When both ISP sessions on an ASBR flap simultaneously, check `get_bgp(device, "neighbors", neighbor=<ip>)` for mismatched "hold time" vs "Configured hold time" lines. Non-default `timers <keepalive> <hold>` on neighbor statements (e.g. 3/9 instead of 60/180) make sessions fragile — any network jitter causes hold expiry and teardown, which cascades to downstream default route loss. Fix: `no neighbor X timers <k> <h>` to restore defaults. No session reset required if the change is applied inline; IOS renegotiates on the next OPEN.
 
-10. **Traceroute via unexpected ISP path = primary ISP link failure, not transient**: When traceroute succeeds but transits an alternate ISP (e.g., IBN instead of IAN), do not dismiss as transient. Check BGP prefix counts on the ASBR — a significant imbalance between ISP peers (e.g., 2 vs 7 prefixes) signals the primary ISP path is down. Trace the issue to the ISP device's interface toward the destination (admin-shutdown, link failure) or a failed BGP session. The alternate path masks the failure but introduces suboptimal routing.
+

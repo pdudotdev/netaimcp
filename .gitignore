@@ -18,9 +18,13 @@ testing/agent-testing/platform_tests/platform_coverage_results.md
 *.p12
 
 # On-call watcher operational state — runtime-only, never commit
-pending_events.json
-deferred.json
-oncall.lock
+oncall/oncall.lock
+
+# Per-session agent output logs — runtime-only, never commit
+logs/session-*.md
+
+# Discord approval runtime state — runtime-only, never commit
+data/
 
 # Proprietary behavioral artifacts — use .example.md versions as templates
 CLAUDE.md

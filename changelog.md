@@ -4,6 +4,57 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [v5.2.0]
+
+### 📟 Discord Remote Approval
+- New `core/discord_approval.py` module — Discord bot API integration: `post_approval_request()`, `poll_for_reaction()`, `post_outcome()`
+- New `tools/approval.py` — two MCP tools registered:
+  - `request_approval`: posts a rich embed to a configured Discord channel with findings, commands, devices, and risk level. Adds ✅/❌ reactions and polls for operator response. Returns `"approved"` / `"rejected"` / `"expired"` / `"skipped"` decision.
+  - `post_approval_outcome`: posts the final outcome (approved+verified, rejected, expired) as a Discord reply after fix + verification
+- **Discord-primary**: when Discord is configured, the operator approves via Discord embed. When Discord is not configured, the agent logs to Jira that no approval channel is available and exits without pushing config.
+- **No Discord = no push**: if Discord not configured (`DISCORD_BOT_TOKEN` / `DISCORD_CHANNEL_ID` absent), `request_approval` returns `"skipped"` — the agent must proceed to Session Closure without applying any fix
+- **Audit trail**: every approval request and outcome written to `data/pending_approval.json` (runtime state, gitignored)
+- New env vars: `DISCORD_BOT_TOKEN`, `DISCORD_CHANNEL_ID`, `APPROVAL_TIMEOUT_MINUTES` (default 10)
+- Setup guide: `metadata/discord/discord_setup.md`
+- 13 → 15 MCP tools registered
+
+### 🔒 push_config Code-Level Approval Gate
+- `push_config` now verifies `data/pending_approval.json` before executing any commands — architectural enforcement independent of prompt instructions
+- Requirements: record must exist with `status: "APPROVED"` and device list must **exactly match** the push targets (sorted comparison). Pushing to unapproved devices is blocked even if an approval record exists for different devices.
+- Blocks with a descriptive error: no record, wrong status (`REJECTED`, `EXPIRED`, `PENDING`, `SKIPPED`), device mismatch, or `EXECUTED` replay
+- After a successful push, record is marked `EXECUTED` — a second push on the same approval is blocked; a new `request_approval` call is required
+- When Discord is not configured, `request_approval` writes a `SKIPPED` record — `push_config` is blocked at the code gate, enforcing the same policy as the prompt instructions
+- Previously: approval was prompt-level only (CLAUDE.md Pitfall #16). Now: two independent enforcement layers — code gate (architectural) + prompt instructions (behavioral)
+
+### 🔄 Session Lifecycle — Service-Only Mode + Auto-Exit
+- **Interactive mode removed** — the watcher always runs Claude in tmux + print mode (`-p`). Claude processes its prompt, uses MCP tools, and exits automatically when done. No `/exit` needed, no operator at the CLI required.
+- **Single code path**: `--service` flag removed from `watcher.py` and systemd `ExecStart`. tmux is now a hard requirement checked at startup.
+- **Session output logging**: each session's full output is streamed via `tmux pipe-pane` to `logs/session-oncall-<timestamp>.md` for post-incident review.
+- **Watcher resumes monitoring immediately** after Claude exits — `_wait_for_tmux_process_exit()` polls `pane_dead` so `remain-on-exit on` sessions don't block the watcher.
+- **tmux session persists** after Claude exits (`remain-on-exit on`) so operators can attach later to review the full investigation history.
+
+### 🗑️ Deferred Investigation Sessions Removed
+- `invoke_deferred_review()` deleted — no second agent session is spawned for deferred failures.
+- **Deferred documentation**: after the primary session ends, `watcher.py` scans for concurrent failures, adds a Jira comment to the original ticket, and posts an informational Discord embed. No agent cost, no autonomous investigation.
+- New `_document_deferred_events()` helper in `watcher.py`. New `post_deferred_list()` in `core/discord_approval.py`.
+- Removed: `PENDING_EVENTS_FILE`, `DEFERRED_FILE`, `save_pending_events()`, stale file cleanup at startup.
+- `.gitignore`: removed `oncall/pending_events.json` + `oncall/deferred.json`; added `logs/session-*.md`.
+
+### 🧠 Oncall Skill & Agent Guidance
+- Added **Step 4: Approval, Remediation & Session Closure** to `skills/oncall/SKILL.md` — the skill is now a complete end-to-end workflow. Previously it ended at "Presenting Findings" with no bridge to the approval/remediation lifecycle (CLAUDE.md steps 4–6). An agent following the skill alone could skip Discord approval entirely.
+- Updated CLAUDE.md: "user is supervising the workflow via the Claude Code console" → "operator supervises via the Claude Code console and/or Discord remote approval" (accurate for remote approval scenarios)
+- Added CLAUDE.md Pitfall #16 (never call `push_config` without approval) and Pitfall #17 (always call `post_approval_outcome` after resolution)
+
+### 📚 Documentation
+- `metadata/about/guardrails.md` — expanded **Agent Autonomy Approval** section: documents code-level gate, Discord-primary approval model, exact device match requirement, and replay prevention. Replaces the single-line "no-auto-push rule" with a full three-layer description.
+
+### 🧪 Testing
+- **UT-018** (`test_config_approval_gate.py`): 10 unit tests covering all gate scenarios — no record, bad status (4 variants), replay, device mismatch, superset mismatch, successful push, EXECUTED marking
+- **UT-014** (`test_config_push.py`): updated to bypass approval gate via `_NO_APPROVAL_ERROR` mock (gate tested separately in UT-018)
+- 408 → 430 unit tests
+
+---
+
 ## [v5.1.0]
 
 ### 🗑️ Removed

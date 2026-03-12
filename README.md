@@ -1,7 +1,7 @@
 # ✨ aiNOC
 
 **aiNOC:**<br/>
-[![Latest Release](https://img.shields.io/badge/version-5.0.0-blue.svg)](https://github.com/pdudotdev/aiNOC/releases/tag/5.0.0) [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/aiNOC)](https://github.com/pdudotdev/aiNOCcommits/main/)
+[![Latest Release](https://img.shields.io/badge/version-5.2.0-blue.svg)](https://github.com/pdudotdev/aiNOC/releases/tag/5.2.0) [![Last Commit](https://img.shields.io/github/last-commit/pdudotdev/aiNOC)](https://github.com/pdudotdev/aiNOCcommits/main/)
 
 **Core version vendors:**<br/>
 ![Cisco IOS-XE](https://img.shields.io/badge/Cisco-IOS--XE-0176C1)
@@ -43,7 +43,7 @@ AI-based **network troubleshooting framework** for multi-vendor, multi-protocol,
 - [x] **Multi-area/multi-AS**
 - [x] **CLI/RESTCONF (Core)**
 - [x] **NETCONF/REST/gNMI/eAPI (extensions)**
-- [x] **14 MCP tools, 4 skills**
+- [x] **15 MCP tools, 4 skills**
 - [x] **33 operational guardrails**
 - [x] **Human in the loop**
 - [x] **Jira integration**
@@ -102,9 +102,9 @@ Create `settings.json` under `.claude/`:
 - [x] **Watch** and **Star** this repository
 
 **Current version**:
-- [x] **aiNOC v5.0**
+- [x] **aiNOC v5.2**
 
-## ⭐ What's New in v5.0
+## ⭐ What's New in v5.2
 - [x] See [**changelog.md**](changelog.md)
 
 ## ⚒️ Core Tech Stack
@@ -243,23 +243,27 @@ aiNOC runs as an **On-Call watcher** that monitors Vector's `/var/log/network.js
 5. Only upon **operator approval**, the agent applies and verifies the fix
 6. Results are logged to **Jira** and the watcher resumes monitoring
 
-### Deployment Options
+### Deployment
 
-| Mode | Command | Agent Sessions | Best For |
-|------|---------|---------------|----------|
-| **Interactive** | `python3 oncall/watcher.py` | Inline (current terminal) | Development, testing |
-| **Service** | `systemctl start oncall-watcher` | tmux (detached, attach anytime) | Production |
+The watcher always runs in service mode — Claude is invoked non-interactively via tmux + print mode (`-p`), auto-exits when done, and the watcher resumes immediately. No interactive CLI required.
+
+| Command | Description |
+|---------|-------------|
+| `python3 oncall/watcher.py` | Run directly (dev/test) |
+| `systemctl start oncall-watcher` | Run as systemd service (production) |
+
+The operator interacts exclusively via **Discord** (approval/rejection embeds). Live session observation: `tmux attach -t <session_name>`. Full session output saved to `logs/session-oncall-<timestamp>.md`.
 
 ▫️ See [Installation & Usage](#️-installation--usage) for setup instructions.
 
 ### Storm Prevention
 
-Only one agent session runs at a time. Concurrent SLA failures during an active session are **deferred** and presented for review after the current case closes. A drain mechanism ensures no duplicate event processing. A process-level lock file (`oncall.lock`) with stale-PID detection prevents duplicate watcher instances.
+Only one agent session runs at a time. Concurrent SLA failures during an active session are captured and documented to Jira and Discord after the session ends — they are not re-triggered or investigated automatically. A drain mechanism ensures no duplicate event processing. A process-level lock file (`oncall/oncall.lock`) with stale-PID detection prevents duplicate watcher instances.
 
 ## ⬆️ Planned Upgrades
 - [ ] New protocols and services
 - [ ] Performance-based SLAs
-- [ ] Discord/Slack support
+- [ ] Slack support
 - [ ] Digital twin feature
 
 ## 🌱 AI Automation 101

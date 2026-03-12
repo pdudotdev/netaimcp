@@ -8,7 +8,7 @@ Wants=vector.service
 Type=simple
 User=mcp
 WorkingDirectory=/home/mcp/aiNOC
-ExecStart=/home/mcp/aiNOC/mcp/bin/python3 /home/mcp/aiNOC/oncall/watcher.py --service
+ExecStart=/home/mcp/aiNOC/mcp/bin/python3 /home/mcp/aiNOC/oncall/watcher.py
 Restart=on-failure
 RestartSec=10
 

@@ -264,3 +264,36 @@ class JiraResolveInput(BaseParamsModel):
                 f"issue_key must match Jira format (e.g. SUP-12, AINOC-1). Got: {v!r}"
             )
         return v
+
+# Approval request - input model
+class ApprovalInput(BaseParamsModel):
+    """Request operator approval for a proposed configuration change via Discord."""
+    issue_key: str | None = Field(None, description="Jira issue key (if available, e.g. 'SUP-12')")
+    summary: str = Field(..., description="One-line summary of the proposed fix")
+    findings: str = Field(..., description="Full findings table in markdown format")
+    commands: list[str] = Field(..., description="Configuration commands to apply")
+    devices: list[str] = Field(..., description="Target device names from inventory")
+    risk_level: Literal["low", "medium", "high"] = Field(
+        ..., description="Risk level from assess_risk: low | medium | high"
+    )
+    timeout_minutes: int = Field(10, description="Minutes to wait for operator response (default: 10)")
+
+    @field_validator('issue_key')
+    @classmethod
+    def _validate_issue_key(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not _JIRA_KEY_RE.match(v):
+            raise ValueError(
+                f"issue_key must match Jira format (e.g. SUP-12, AINOC-1). Got: {v!r}"
+            )
+        return v
+
+
+class ApprovalOutcomeInput(BaseParamsModel):
+    """Post the final outcome of an approval to Discord."""
+    message_id: str = Field(..., description="Discord message ID returned by request_approval")
+    decision: str = Field(..., description="approved | rejected | expired")
+    decided_by: str | None = Field(None, description="Username who approved or rejected")
+    verified: bool | None = Field(None, description="True if post-fix verification passed, False if failed, None if not applicable")
+    verification_detail: str | None = Field(None, description="Short verification result summary (e.g. 'OSPF neighbor restored to FULL')")

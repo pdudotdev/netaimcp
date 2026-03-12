@@ -3,8 +3,9 @@
 aiNOC On-Call Watcher
 Monitors /var/log/network.json for network probe failures (Down events) and invokes Claude Code.
 Implements storm prevention (single-instance guard) and graceful shutdown.
-Deferred failures (events arriving during an active agent session) are saved to
-pending_events.json for the agent to present to the user at session closure.
+Deferred failures (events arriving during an active agent session) are documented
+to Jira and Discord — no second agent session is spawned.
+Always runs Claude in tmux + print mode (-p). Discord is the operator interaction channel.
 """
 
 import argparse
@@ -23,6 +24,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core import jira_client
+from core import discord_approval
 from core.logging_config import setup_watcher_logging
 
 
@@ -30,10 +32,9 @@ from core.logging_config import setup_watcher_logging
 LOG_FILE = os.environ.get("NETWORK_LOG_FILE", "/var/log/network.json")
 PROJECT_DIR = Path(__file__).parent.parent
 INVENTORY_FILE = PROJECT_DIR / "inventory" / "NETWORK.json"
-LOCK_FILE = PROJECT_DIR / "oncall.lock"
+LOCK_FILE = PROJECT_DIR / "oncall" / "oncall.lock"
 WATCHER_LOG = PROJECT_DIR / "logs" / "oncall_watcher.log"
-PENDING_EVENTS_FILE = PROJECT_DIR / "pending_events.json"
-DEFERRED_FILE = PROJECT_DIR / "deferred.json"
+LOGS_DIR = PROJECT_DIR / "logs"
 CLAUDE_BIN = "/home/mcp/.local/bin/claude"
 
 # Module-level logger — handlers are configured by setup_watcher_logging() in main()
@@ -227,44 +228,63 @@ def scan_for_recovery_events(trigger_event, session_start, session_end, device_m
         _wlog.warning("Could not scan for recovery events: %s", e)
 
 
-def save_pending_events(events):
-    """Write deferred events to pending_events.json for the agent to present at closure."""
-    PENDING_EVENTS_FILE.write_text(json.dumps(events, indent=2))
+def _wait_for_tmux_process_exit(session_name: str, timeout_minutes: int = 30) -> None:
+    """Block until the process inside the tmux session has exited or the timeout fires.
+
+    Uses pane_dead format flag instead of has-session so that remain-on-exit
+    sessions (which keep the tmux session alive) still unblock the watcher
+    as soon as Claude finishes. Returns immediately if the session is gone.
+
+    If the Claude process is still running after timeout_minutes, the tmux
+    session is force-killed to prevent the watcher from blocking indefinitely.
+    """
+    deadline = time.monotonic() + timeout_minutes * 60
+    while time.monotonic() < deadline:
+        result = subprocess.run(
+            ["tmux", "list-panes", "-t", session_name, "-F", "#{pane_dead}"],
+            capture_output=True, text=True,
+        )
+        # Session gone or pane is dead (process exited) — either way, done
+        if result.returncode != 0 or "1" in result.stdout:
+            return
+        time.sleep(2)
+    # Timeout — force-kill the hung session so the watcher can recover
+    _wlog.warning(
+        "Agent session %s exceeded %d-minute timeout — force-killing",
+        session_name, timeout_minutes,
+    )
+    subprocess.run(["tmux", "kill-session", "-t", session_name], capture_output=True)
+
+
+_ANSI_RE = re.compile(
+    r'\x1b(?:'
+    r'[@-Z\\-_]'           # Fe sequences (single char after ESC)
+    r'|\[[0-?]*[ -/]*[@-~]'  # CSI sequences (ESC [ ... final)
+    r'|\][^\x07]*\x07'     # OSC sequences terminated by BEL
+    r'|\][^\x1b]*\x1b\\'   # OSC sequences terminated by ST
+    r')'
+)
+
+
+def _clean_session_log(path: Path) -> None:
+    """Strip ANSI escape sequences from a session log file in-place."""
+    try:
+        raw = path.read_text(errors="replace")
+        cleaned = _ANSI_RE.sub("", raw)
+        if cleaned != raw:
+            path.write_text(cleaned)
+            _wlog.debug("Session log cleaned: %s", path.name)
+    except Exception as exc:
+        _wlog.warning("Could not clean session log %s: %s", path, exc)
 
 
 def notify_operator(session_name: str):
     """
-    Notify logged-in operators that a new agent tmux session has been created.
-    Uses two channels: direct write to /dev/pts/* (all open terminals) and
-    notify-send (desktop popup). Both are non-fatal.
-    This is the single notification point — extend here for Discord, Slack,
-    WhatsApp, or other integrations in the future.
+    Send a desktop popup notification when an agent session starts.
+    Uses notify-send (non-fatal if unavailable or no display server).
+    Remote notification is handled separately via Discord post_investigation_started().
     """
-    message = (
-        f"\n[aiNOC] SLA path failure detected.\n"
-        f"Agent session: {session_name}\n"
-        f"Attach with: tmux attach -t {session_name}\n"
-    )
-
-    # Write to all open pseudo-terminals owned by this user
-    pts_dir = Path("/dev/pts")
-    uid = os.getuid()
-    notified = 0
-    try:
-        for pts in pts_dir.iterdir():
-            if not pts.name.isdigit():
-                continue
-            try:
-                if pts.stat().st_uid != uid:
-                    continue
-                pts.write_text(message)
-                notified += 1
-            except OSError:
-                pass  # Terminal may be closed or busy — skip silently
-    except OSError as e:
-        _wlog.warning("Could not iterate /dev/pts: %s", e)
-    if notified:
-        _wlog.debug("Notification written to %d terminal(s).", notified)
+    message = f"[aiNOC] SLA path failure detected — session: {session_name}"
 
     # Desktop notification (non-fatal if notify-send is unavailable or no display)
     # Systemd services don't inherit DISPLAY/DBUS vars — supply predictable defaults.
@@ -273,7 +293,7 @@ def notify_operator(session_name: str):
         desktop_env.setdefault("DISPLAY", ":0")
         desktop_env.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path=/run/user/{os.getuid()}/bus")
         subprocess.run(
-            ["notify-send", "-u", "critical", "aiNOC — SLA Failure", message.strip()],
+            ["notify-send", "-u", "critical", "aiNOC — SLA Failure", message],
             env=desktop_env,
             capture_output=True,
             timeout=5,
@@ -282,15 +302,49 @@ def notify_operator(session_name: str):
         pass  # No desktop environment or notify-send not installed — ignore
 
 
-def invoke_claude(event, device_map, service=False):
-    """
-    Invoke Claude Code with SLA event context.
-    Records session start/end times, scans for deferred failures after the session,
-    and saves them to pending_events.json for the review session.
+def _document_deferred_events(deferred_events: list, issue_key: str | None) -> None:
+    """Document deferred SLA failures to Jira and Discord. No investigation."""
+    if not deferred_events:
+        return
 
-    In service mode, the agent is spawned in a detached tmux session so the operator
-    can attach (tmux attach -t <session_name>) and interact with it at any time.
-    In default mode, Claude runs interactively in the current terminal.
+    lines = []
+    for i, e in enumerate(deferred_events, 1):
+        name = e.get("device_name", e.get("device", "?"))
+        ip = e.get("device", "?")
+        msg = sanitize_syslog_msg(e.get("msg", ""), max_length=200)
+        ts = e.get("ts", "?")
+        lines.append(f"{i}. {name} ({ip}): {msg} (at {ts})")
+    event_list = "\n".join(lines)
+
+    if issue_key:
+        comment = (
+            "h3. Deferred SLA Failures\n\n"
+            "The following SLA path failures occurred during the active investigation session "
+            "and were not investigated:\n\n"
+            f"{event_list}\n\n"
+            "These may require manual follow-up if still active."
+        )
+        try:
+            asyncio.run(jira_client.add_comment(issue_key, comment))
+            _wlog.info("Deferred failures documented to Jira ticket %s", issue_key)
+        except Exception as e:
+            _wlog.warning("Failed to add deferred comment to Jira: %s", e)
+
+    if discord_approval.is_configured():
+        try:
+            asyncio.run(discord_approval.post_deferred_list(deferred_events, issue_key))
+            _wlog.info("Deferred failures posted to Discord")
+        except Exception as exc:
+            _wlog.warning("Failed to post deferred failures to Discord: %s", exc)
+
+
+def invoke_claude(event, device_map):
+    """
+    Invoke Claude Code with SLA event context in a detached tmux session (print mode).
+    Claude processes the prompt autonomously and exits when done — no interactive CLI.
+    Session output is streamed to logs/session-oncall-<timestamp>.md via tmux pipe-pane.
+    The operator can observe live via: tmux attach -t <session_name>
+    After the session, scans for deferred failures and documents them to Jira + Discord.
     """
     device_ip = event.get("device", event.get("source_ip", "unknown"))
     device_name = resolve_device(device_ip, device_map)
@@ -320,7 +374,7 @@ def invoke_claude(event, device_map, service=False):
             f"Source Device: {device_name} ({device_ip})\n"
             f"Timestamp: {event.get('ts', 'unknown')}\n"
             f"Event: {event.get('msg', 'unknown')}\n\n"
-            "NetAdmin agent is investigating."
+            "aiNOC agent is investigating."
         ),
         priority="High",
     ))
@@ -338,6 +392,22 @@ def invoke_claude(event, device_map, service=False):
         "decide whether this case warrants a new lesson or an update to an existing one."
     )
 
+    # Compute session name early — needed for notification and tmux
+    session_name = f"oncall-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
+    # Notify operator via Discord that investigation is starting (non-blocking)
+    try:
+        asyncio.run(discord_approval.post_investigation_started(
+            device_name=device_name,
+            device_ip=device_ip,
+            event_msg=safe_msg,
+            event_ts=event.get("ts", "unknown"),
+            issue_key=issue_key,
+            session_name=session_name,
+        ))
+    except Exception:
+        _wlog.debug("Discord investigation-started notification failed (non-blocking)")
+
     # Write lock file with this process's PID
     LOCK_FILE.write_text(str(os.getpid()))
     _wlog.info("Agent invoked for event on %s: %s", device_name, event.get("msg", ""))
@@ -350,120 +420,50 @@ def invoke_claude(event, device_map, service=False):
     session_start = trigger_ts if trigger_ts else datetime.now(timezone.utc)
     session_end = None
 
+    # Ensure logs directory exists
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+    session_log = LOGS_DIR / f"session-{session_name}.md"
+
     try:
-        if service:
-            # Spawn Claude in a detached tmux session so the operator can attach and interact
-            session_name = f"oncall-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-            subprocess.run(
-                ["tmux", "new-session", "-d", "-s", session_name, CLAUDE_BIN, prompt],
-                cwd=PROJECT_DIR,
-            )
-            subprocess.run(["tmux", "set-option", "-t", session_name, "mouse", "on"], capture_output=True)
-            subprocess.run(["tmux", "set-option", "-t", session_name, "history-limit", "5000"], capture_output=True)
-            _wlog.info("Agent invoked in tmux session: %s", session_name)
-            _wlog.info("Attach with: tmux attach -t %s", session_name)
-            notify_operator(session_name)
-            # Poll until the tmux session exits (Claude finished or user typed /exit)
-            while subprocess.run(
-                ["tmux", "has-session", "-t", session_name], capture_output=True
-            ).returncode == 0:
-                time.sleep(2)
-        else:
-            # Default: Claude runs interactively in this terminal
-            subprocess.run([CLAUDE_BIN, prompt], cwd=PROJECT_DIR)
+        subprocess.run(
+            ["tmux", "new-session", "-d", "-s", session_name, CLAUDE_BIN, "-p", prompt],
+            cwd=PROJECT_DIR,
+        )
+        subprocess.run(["tmux", "set-option", "-t", session_name, "mouse", "on"], capture_output=True)
+        subprocess.run(["tmux", "set-option", "-t", session_name, "history-limit", "5000"], capture_output=True)
+        # Keep the tmux session alive after Claude exits so operators can review history
+        subprocess.run(["tmux", "set-option", "-t", session_name, "remain-on-exit", "on"], capture_output=True)
+        # Stream all pane output to a session log file for post-incident review
+        subprocess.run(
+            ["tmux", "pipe-pane", "-t", session_name, f"cat >> {session_log}"],
+            capture_output=True,
+        )
+        _wlog.info("Agent invoked in tmux session: %s", session_name)
+        _wlog.info("Session log: %s", session_log)
+        notify_operator(session_name)
+        # Poll until Claude's process exits (not until the session is destroyed)
+        agent_timeout = int(os.getenv("AGENT_TIMEOUT_MINUTES", "30"))
+        _wait_for_tmux_process_exit(session_name, timeout_minutes=agent_timeout)
     finally:
         session_end = datetime.now(timezone.utc)
         cleanup_lock()
+        if session_log.exists():
+            _clean_session_log(session_log)
+        # Kill the dead tmux session — session log preserves all output
+        subprocess.run(["tmux", "kill-session", "-t", session_name], capture_output=True)
         _wlog.info("Agent session ended.")
 
-    # Scan for Down failures that arrived during the session (save for deferred review)
+    # Scan for Down failures that arrived during the session
     deferred = scan_for_deferred_events(event, session_start, session_end, device_map)
+
+    # Document deferred failures to Jira and Discord (no second agent session)
     if deferred:
-        save_pending_events(deferred)
-        _wlog.info("Saved %d deferred failure(s) to pending_events.json", len(deferred))
+        _wlog.info("Documenting %d deferred failure(s) to Jira/Discord", len(deferred))
+        _document_deferred_events(deferred, issue_key)
 
     # Log any recovery events that arrived during the session (observability only — no behavioral effect)
     scan_for_recovery_events(event, session_start, session_end, device_map)
-
-
-def invoke_deferred_review(device_map, service=False):
-    """
-    Spawn a focused agent session whose only job is to present deferred SLA failures
-    to the user and ask whether to investigate them.
-    Called from main() immediately after invoke_claude() if pending_events.json exists.
-    Uses tmux in service mode (same pattern as invoke_claude).
-    """
-    try:
-        events = json.loads(PENDING_EVENTS_FILE.read_text())
-        PENDING_EVENTS_FILE.unlink()
-    except Exception as e:
-        _wlog.warning("Could not load pending_events.json for deferred review: %s", e)
-        return
-
-    if not events:
-        return
-
-    # Write deferred.json so the agent can Read it if needed
-    DEFERRED_FILE.write_text(json.dumps(events, indent=2))
-
-    # Build a self-contained prompt — no reliance on session closure steps
-    lines = []
-    for i, e in enumerate(events, 1):
-        name = sanitize_syslog_msg(e.get("device_name", e.get("device", "?")), max_length=64)
-        ip   = sanitize_syslog_msg(e.get("device", "?"), max_length=64)
-        msg  = sanitize_syslog_msg(e.get("msg", ""), max_length=200)
-        ts   = sanitize_syslog_msg(e.get("ts", ""), max_length=64)
-        lines.append(f"  {i}. {name} ({ip}): {msg} (at {ts})")
-    event_list = "\n".join(lines)
-
-    prompt = (
-        "Deferred SLA failure review.\n\n"
-        "During the previous On-Call session the following SLA path failures were detected\n"
-        "but could not be investigated at the time (logged as SKIPPED in logs/oncall_watcher.log):\n\n"
-        f"{event_list}\n\n"
-        "Your only task: present this list to the user exactly as shown above and ask:\n"
-        "\"Would you like to investigate any of these?\"\n\n"
-        "  - A number (e.g. 1 or 2): investigate that specific failure using the full On-Call workflow\n"
-        "    (read skills/oncall/SKILL.md Step 0 → Step 3). Document the case in the Jira ticket.\n"
-        "    Curate cases/lessons.md. Then return to the deferred list for any remaining failures.\n"
-        "  - 'all': investigate all failures one by one.\n"
-        "  - /exit: skip and resume watcher monitoring.\n\n"
-        "The full event details are also in `deferred.json` if you need to Read them."
-    )
-
-    # Remind agent about lessons for deferred investigations
-    prompt += (
-        "\n\nIf you investigate any deferred failure, read cases/lessons.md first "
-        "and evaluate whether the case produces a new lesson worth adding after resolution."
-    )
-    _wlog.debug("lessons.md reminder injected into deferred review prompt")
-
-    LOCK_FILE.write_text(str(os.getpid()))
-    _wlog.info("Deferred review session invoked for %d failure(s).", len(events))
-
-    try:
-        if service:
-            session_name = f"oncall-deferred-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-            subprocess.run(
-                ["tmux", "new-session", "-d", "-s", session_name, CLAUDE_BIN, prompt],
-                cwd=PROJECT_DIR,
-            )
-            subprocess.run(["tmux", "set-option", "-t", session_name, "mouse", "on"], capture_output=True)
-            subprocess.run(["tmux", "set-option", "-t", session_name, "history-limit", "5000"], capture_output=True)
-            _wlog.info("Deferred review in tmux session: %s", session_name)
-            _wlog.info("Attach with: tmux attach -t %s", session_name)
-            notify_operator(session_name)
-            while subprocess.run(
-                ["tmux", "has-session", "-t", session_name], capture_output=True
-            ).returncode == 0:
-                time.sleep(2)
-        else:
-            subprocess.run([CLAUDE_BIN, prompt], cwd=PROJECT_DIR)
-    finally:
-        cleanup_lock()
-        if DEFERRED_FILE.exists():
-            DEFERRED_FILE.unlink()
-        _wlog.info("Deferred review session ended. Resuming monitoring.")
 
 
 def tail_follow(filepath, drain):
@@ -517,21 +517,10 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="aiNOC On-Call Watcher — monitors SLA paths and invokes Claude on failures."
     )
-    parser.add_argument(
-        "-s", "--service",
-        action="store_true",
-        help=(
-            "Run in systemd service mode: agent sessions are spawned in detached tmux sessions "
-            "so the watcher can run as a persistent background service while operators attach "
-            "to individual sessions with: tmux attach -t <session_name>. "
-            "A wall notification is broadcast when a session starts. "
-            "Requires tmux (install with: apt install tmux)."
-        ),
-    )
     return parser.parse_args()
 
 
-def main(service=False):
+def main():
     """Main watcher loop."""
     setup_watcher_logging(WATCHER_LOG)
 
@@ -541,11 +530,9 @@ def main(service=False):
     else:
         _wlog.warning("Jira integration: DISABLED — set JIRA_* variables in .env")
 
-    if service:
-        if not shutil.which("tmux"):
-            print("ERROR: tmux is required for service mode. Install with: apt install tmux", file=sys.stderr)
-            sys.exit(1)
-        _wlog.info("Watcher started in SERVICE mode — agent sessions will use tmux.")
+    if not shutil.which("tmux"):
+        print("ERROR: tmux is required. Install with: apt install tmux", file=sys.stderr)
+        sys.exit(1)
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -553,12 +540,6 @@ def main(service=False):
     # Clean up any stale lock from previous session
     if is_lock_stale():
         cleanup_lock()
-
-    # Discard any leftover files from a previous watcher run
-    for stale_file in [PENDING_EVENTS_FILE, DEFERRED_FILE]:
-        if stale_file.exists():
-            stale_file.unlink()
-            _wlog.info("Discarded stale %s from previous watcher run.", stale_file.name)
 
     _wlog.info("Watcher started. Monitoring /var/log/network.json for IP SLA Down events.")
 
@@ -593,18 +574,14 @@ def main(service=False):
         if is_lock_stale():
             cleanup_lock()
 
-        invoke_claude(event, device_map, service=service)
+        invoke_claude(event, device_map)
 
-        # If deferred failures were saved, handle them in a focused review session
-        if PENDING_EVENTS_FILE.exists():
-            invoke_deferred_review(device_map, service=service)
-        else:
-            _wlog.info("Resuming monitoring.")
+        _wlog.info("Resuming monitoring.")
 
         # Drain all buffered events — only process truly new ones after this point
         drain[0] = True
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    main(service=args.service)
+    parse_args()
+    main()

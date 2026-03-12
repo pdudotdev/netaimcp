@@ -21,6 +21,7 @@ from tools.operational import get_interfaces, ping, traceroute, run_show
 from tools.state       import get_intent, assess_risk
 from tools.config      import push_config
 from tools.jira_tools  import jira_add_comment, jira_resolve_issue
+from tools.approval    import request_approval, post_approval_outcome
 
 
 mcp = FastMCP("mcp_automation")
@@ -38,8 +39,10 @@ mcp.tool(name="assess_risk")(assess_risk)
 mcp.tool(name="push_config")(push_config)
 mcp.tool(name="jira_add_comment")(jira_add_comment)
 mcp.tool(name="jira_resolve_issue")(jira_resolve_issue)
+mcp.tool(name="request_approval")(request_approval)
+mcp.tool(name="post_approval_outcome")(post_approval_outcome)
 
-log.info("aiNOC MCP Server started — 13 tools registered")
+log.info("aiNOC MCP Server started — 15 tools registered")
 
 if __name__ == "__main__":
     mcp.run()

@@ -23,7 +23,9 @@
       "mcp__mcp_automation__run_show",
       "mcp__mcp_automation__get_intent",
       "mcp__mcp_automation__jira_add_comment",
-      "mcp__mcp_automation__jira_resolve_issue"
+      "mcp__mcp_automation__jira_resolve_issue",
+      "mcp__mcp_automation__request_approval",
+      "mcp__mcp_automation__post_approval_outcome"
     ],
     "deny": [
       "Read(.env)",

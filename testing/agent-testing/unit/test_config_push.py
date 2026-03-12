@@ -22,6 +22,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from tools.config import push_config, validate_commands, FORBIDDEN
 from input_models.models import ConfigCommand
 
+# Bypass the approval gate for all tests in this file — the gate is tested in test_config_approval_gate.py
+_NO_APPROVAL_ERROR = patch("tools.config._check_approval", return_value=None)
+
 
 # ── Mock data ─────────────────────────────────────────────────────────────────
 
@@ -49,7 +52,8 @@ def test_push_config_forbidden_command_returns_error():
     params = ConfigCommand(devices=["E1C"], commands=["reload"])
 
     with patch("tools.config.devices", MOCK_DEVICES), \
-         patch("tools.config.assess_risk", new=AsyncMock(return_value=MOCK_RISK)):
+         patch("tools.config.assess_risk", new=AsyncMock(return_value=MOCK_RISK)), \
+         _NO_APPROVAL_ERROR:
         result = run(push_config(params))
 
     assert "error" in result, "push_config must return error when forbidden command is present"
@@ -72,7 +76,8 @@ def test_push_config_rollback_advisory_present():
 
     with patch("tools.config.devices", MOCK_DEVICES), \
          patch("tools.config.assess_risk", new=AsyncMock(return_value=MOCK_RISK)), \
-         patch("tools.config.push_ssh", new=AsyncMock(return_value=("E1C", {"transport_used": "asyncssh", "result": "ok"}))):
+         patch("tools.config.push_ssh", new=AsyncMock(return_value=("E1C", {"transport_used": "asyncssh", "result": "ok"}))), \
+         _NO_APPROVAL_ERROR:
         result = run(push_config(params))
 
     assert "rollback_advisory" in result, "push_config result must contain rollback_advisory"
@@ -87,7 +92,8 @@ def test_push_config_rollback_inverts_no_commands():
 
     with patch("tools.config.devices", MOCK_DEVICES), \
          patch("tools.config.assess_risk", new=AsyncMock(return_value=MOCK_RISK)), \
-         patch("tools.config.push_ssh", new=AsyncMock(return_value=("E1C", {"transport_used": "asyncssh", "result": "ok"}))):
+         patch("tools.config.push_ssh", new=AsyncMock(return_value=("E1C", {"transport_used": "asyncssh", "result": "ok"}))), \
+         _NO_APPROVAL_ERROR:
         result = run(push_config(params))
 
     assert result["rollback_advisory"] == ["ip ospf hello-interval 10"]
@@ -100,7 +106,8 @@ def test_push_config_mixed_cli_styles_rejected():
     params = ConfigCommand(devices=["E1C", "R1"], commands=["description test"])
 
     with patch("tools.config.devices", MOCK_DEVICES_MIXED), \
-         patch("tools.config.assess_risk", new=AsyncMock(return_value=MOCK_RISK)):
+         patch("tools.config.assess_risk", new=AsyncMock(return_value=MOCK_RISK)), \
+         _NO_APPROVAL_ERROR:
         result = run(push_config(params))
 
     assert "error" in result, "push_config must error on mixed cli_style device list"

@@ -73,6 +73,8 @@ case "${MODE}" in
         run_pytest "UT-014 Config Push"         "${TEST_PREFIX}/unit/test_config_push.py"
         run_pytest "UT-015 Tool Layer"          "${TEST_PREFIX}/unit/test_tool_layer.py"
         run_pytest "UT-016 Jira Tools"          "${TEST_PREFIX}/unit/test_jira_tools.py"
+        run_pytest "UT-017 Discord Approval"    "${TEST_PREFIX}/unit/test_approval.py"
+        run_pytest "UT-018 Config Approval Gate" "${TEST_PREFIX}/unit/test_config_approval_gate.py"
         ;;
 
     integration)
@@ -97,6 +99,8 @@ case "${MODE}" in
         run_pytest "UT-014 Config Push"         "${TEST_PREFIX}/unit/test_config_push.py"
         run_pytest "UT-015 Tool Layer"          "${TEST_PREFIX}/unit/test_tool_layer.py"
         run_pytest "UT-016 Jira Tools"          "${TEST_PREFIX}/unit/test_jira_tools.py"
+        run_pytest "UT-017 Discord Approval"    "${TEST_PREFIX}/unit/test_approval.py"
+        run_pytest "UT-018 Config Approval Gate" "${TEST_PREFIX}/unit/test_config_approval_gate.py"
         run_pytest "IT-001 MCP Connectivity"    "${TEST_PREFIX}/integration/test_mcp_connectivity.py"
         run_pytest "IT-002 Watcher Events"      "${TEST_PREFIX}/integration/test_watcher_events.py"
         run_pytest "IT-003 MCP Tools"           "${TEST_PREFIX}/integration/test_mcp_tools.py"

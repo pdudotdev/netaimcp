@@ -6,10 +6,27 @@ A structured overview of the architectural protections that prevent unsafe autom
 
 # 🤖 Agent Autonomy Approval
 
-## ✅ Explicit No-Auto-Push Rule
-- "Always ask the user whether to proceed before calling `push_config`"
-- Mandatory rule (stated twice in `CLAUDE.md`)
-- No configuration changes without explicit user approval
+## ✅ Code-Level Approval Gate (v5.2)
+`push_config` reads `data/pending_approval.json` before executing any configuration change. Requirements:
+- Record must exist with `status: "APPROVED"`
+- `devices` in the approval record must **exactly match** (sorted) the devices being pushed to — pushing to unapproved devices is blocked even if an approval record exists for different devices
+- A record with `status: "EXECUTED"` (already consumed) blocks replay pushes
+
+Without a valid approval record, `push_config` returns an error and no commands are sent to any device. This prevents config push even if prompt-level instructions are lost, ignored, or bypassed.
+
+After a successful push, the record is marked `"EXECUTED"` — a second push requires a new `request_approval` call.
+
+## ✅ Discord-Primary Approval
+- **When Discord is configured**: `request_approval` posts a rich embed and polls for ✅/❌ emoji reaction (up to `APPROVAL_TIMEOUT_MINUTES`, default 10). The operator approves remotely via Discord.
+- **When Discord is not configured**: `request_approval` returns `"skipped"`. The agent logs to Jira that no approval channel is available and exits without pushing config.
+- **If Discord approval expires**: the expiry message is posted automatically to Discord. The agent logs to Jira that the approval window expired and exits.
+- `post_approval_outcome` posts the final outcome (approved+verified, rejected, expired) as a Discord reply after fix + verification
+
+## ✅ Prompt-Level No-Auto-Push Rule
+- CLAUDE.md Pitfall #16: "Never call `push_config` without approval"
+- CLAUDE.md On-Call steps 5–6 mandate `request_approval` before `push_config`
+- Oncall skill Step 4 reinforces the exact tool sequence: `assess_risk` → `request_approval` → handle decision → `push_config` → verify → `post_approval_outcome`
+- Two enforcement layers: code gate (architectural) + prompt instructions (behavioral)
 
 ## ✅ Permission-Based Tool System
 - User can deny any tool call:
@@ -23,7 +40,7 @@ A structured overview of the architectural protections that prevent unsafe autom
 
 # ⚡ Agent Storms & Duplicate Invocations
 
-## ✅ Lock File Mechanism (`oncall.lock`)
+## ✅ Lock File Mechanism (`oncall/oncall.lock`)
 - Single-instance guard
 - Prevents multiple agents from running simultaneously
 
@@ -32,12 +49,12 @@ A structured overview of the architectural protections that prevent unsafe autom
 - Cleans stale locks automatically
 - Prevents deadlocks
 
-## ✅ Deferred Events Handling (`pending_events.json`)
+## ✅ Deferred Events Handling
 - Events arriving during an active session:
-  - Captured
-  - Deferred for later review
-- Not lost
-- Not re-triggered mid-session
+  - Captured by `scan_for_deferred_events()` after the session ends
+  - Documented to Jira (comment on original ticket) and Discord (informational embed)
+  - Not lost, not re-triggered mid-session, not investigated automatically
+- No second agent session is spawned — deferred failures require manual operator follow-up if still active
 
 ## ✅ Drain Mechanism (`drain[0]` flag)
 - After session ends:
@@ -201,9 +218,10 @@ Prevents:
 - Prevents multitasking
 - Prevents context loss
 
-## ✅ Deferred Review Workflow
+## ✅ Deferred Documentation Workflow
 - Events during active session:
-  - Become separate session
+  - Documented to Jira (comment) and Discord (informational embed) after session ends
+  - No second agent session spawned — manual operator follow-up required
 - Prevents abandoning deferred failures
 
 ---
@@ -224,7 +242,7 @@ Prevents:
 - **Known residual risk**: No sanitizer can fully prevent LLM prompt injection from adversarial ASCII text; this is a defense-in-depth measure
 
 ## ✅ Expanded Forbidden Command Set (Updated in v5.0)
-- 23 blocked patterns in `tools/config.py`
+- 21 blocked patterns in `tools/config.py`
 - Covers: reload, erase, write erase, format, delete, copy run, write mem, configure replace, username manipulation, enable secret/password, snmp-server community, crypto key ops, transport input none, and others
 - Applied before any `push_config` execution
 - **Known residual risk**: IOS abbreviations (e.g. `wr er` instead of `write erase`) bypass substring matching; a full IOS parser would be required to close this gap completely
