@@ -59,8 +59,7 @@ AI-based **network troubleshooting framework** for multi-vendor, multi-protocol,
   - Built and adapted per client's network environment
 
 ▫️ **Operating mode of aiNOC starting with v5.0**:
-- [x] **Service** — systemd service, survives reboots
-- [x] See [**aiNOC Operating Modes**](#-ainoc-operating-modes)
+- [x] See [**aiNOC Service Mode**](#-ainoc-service-mode)
 
 ▫️ **Important project files**:
 - [x] See [**file roles**](metadata/about/file_roles.md)
@@ -117,7 +116,7 @@ Create `settings.json` under `.claude/`:
 
 | Vendor | Platform | cli_style | Status |
 |--------|----------|-----------|--------|
-| Cisco | IOS/IOS-XE | `ios` | Core |
+| Cisco | IOS-XE | `ios` | Core |
 | Arista | EOS | `eos` | On-Request |
 | Juniper | JunOS | `junos` | On-Request |
 | MikroTik | RouterOS | `routeros` | On-Request |
@@ -130,7 +129,7 @@ Create `settings.json` under `.claude/`:
 | Management | Devices | Tier | Status |
 |-----------|---------|------|--------|
 | RESTCONF (httpx) | Cisco IOS-XE | Primary | Core |
-| CLI (scrapli) | Cisco IOS/IOS-XE | Fallback | Core |
+| CLI (scrapli) | Cisco IOS-XE | Fallback | Core |
 | NETCONF | custom | — | On-Request |
 | REST API | custom | — | On-Request |
 | gNMI | custom | — | On-Request |
@@ -147,7 +146,7 @@ Create `settings.json` under `.claude/`:
 | **Route-maps, prefix lists** |
 | **NAT/PAT, access lists** |
 
-| aiNOC On-Request Extenstions |
+| aiNOC On-Request Extensions |
 |----------|
 | **EIGRP** |
 | **HSRP** | 
@@ -169,7 +168,7 @@ pip install -r requirements.txt
 ▫️ **Step 2**:
 The included `CLAUDE.md` and `skills/*` are templates. **Customize them** with your own troubleshooting methodology, tool descriptions, and operational guidelines.
 
-**NOTE**: There is no one-size-fits-all `CLAUDE.md` or `SKILL.md` that works in any network environment. These should be customized for each specific topology, vendor combination, and architecture.
+⚠️ **NOTE**: There is no one-size-fits-all `CLAUDE.md` or `SKILL.md` that works in any network environment. These should be customized for each specific topology, vendor combination, and architecture.
 
 ▫️ **Step 3**:
 - Configure IP SLA (or Connectivity Monitor, Netwatch etc.) paths in your network
@@ -180,7 +179,6 @@ The included `CLAUDE.md` and `skills/*` are templates. **Customize them** with y
 ▫️ **Step 4**:
 Run the **aiNOC** watcher service. Claude is invoked non-interactively via **tmux + print mode** (`-p`). The human operator interacts via **Discord** (approval/rejection embeds) — not the terminal.
 
-🦾 **Service Mode** — install once as a systemd service, runs permanently, survives reboots:
 ```bash
 sudo apt install tmux
 sudo cp oncall/oncall-watcher.service /etc/systemd/system/
@@ -188,7 +186,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now oncall-watcher.service
 ```
 Manage with:
-`systemctl start|stop|restart|status oncall-watcher`
+`systemctl start | stop | restart | status oncall-watcher`
 
 Full agent session output is always saved to `logs/session-oncall-<timestamp>.md` for traceability and human audit.
 
@@ -222,17 +220,7 @@ aiNOC runs as an **on-call watcher (service)** that monitors Vector's `/var/log/
 5. Only upon **human operator approval** via Discord, the agent applies and verifies the fix
 6. Results are logged to **Jira** and **Discord**, and the watcher resumes monitoring
 
-### Deployment
-
-The watcher always runs in Service Mode — Claude is invoked non-interactively via tmux + print mode (`-p`), auto-exits when done, and the watcher resumes immediately. No interactive CLI or custom prompts required.
-
-| Command | Description |
-|---------|-------------|
-| `systemctl start oncall-watcher` | Run as systemd service |
-
-The operator interacts exclusively via **Discord** (approval/rejection embeds). Full session output saved to `logs/session-oncall-<timestamp>.md`.
-
-▫️ See [Installation & Usage](#️-installation--usage) for setup instructions.
+See [Installation & Usage](#️-installation--usage) for setup instructions.
 
 ### Storm Prevention
 
