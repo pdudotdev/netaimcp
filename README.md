@@ -26,7 +26,7 @@
 ![Discord](https://img.shields.io/badge/Discord-integration-D4A017)
 
 **Testing statistics:**<br/>
-![MTTR](https://img.shields.io/badge/MTTR-9%3A21%20min-orange)
+![MTTR](https://img.shields.io/badge/MTTR-9%3A21%20min-006400)
 ![Average Cost per Session](https://img.shields.io/badge/Average%20Cost%2FSession-%241.86-006400)
 
 ## 📖 **Table of Contents**
