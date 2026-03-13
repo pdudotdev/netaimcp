@@ -38,6 +38,7 @@ def load_devices() -> dict | None:
     try:
         import pynetbox
         nb = pynetbox.api(url, token=token)
+        nb.http_session.timeout = (5, 15)  # (connect_timeout, read_timeout) in seconds
         raw_devices = list(nb.dcim.devices.all())
     except Exception as exc:
         log.warning("NetBox unavailable: %s — falling back to NETWORK.json", exc)

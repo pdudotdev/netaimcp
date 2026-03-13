@@ -15,7 +15,10 @@ import os
 log = logging.getLogger("ainoc.vault")
 
 # Module-level cache: path → {key: value} dict from Vault KV data
-_cache: dict[str, dict] = {}
+# _VAULT_FAILED is a sentinel for "Vault unreachable for this path" — distinct from an
+# empty-but-valid secret dict. When set, env var fallback is still used on every call.
+_VAULT_FAILED = object()
+_cache: dict[str, object] = {}
 
 
 def get_secret(path: str, key: str, fallback_env: str = "") -> str | None:
@@ -38,7 +41,11 @@ def get_secret(path: str, key: str, fallback_env: str = "") -> str | None:
 
     # Return from cache if already fetched this path
     if path in _cache:
-        return _cache[path].get(key)
+        cached = _cache[path]
+        if cached is _VAULT_FAILED:
+            # Previous attempt failed — preserve env var fallback on every call
+            return os.getenv(fallback_env) if fallback_env else None
+        return cached.get(key)
 
     try:
         import hvac
@@ -55,5 +62,5 @@ def get_secret(path: str, key: str, fallback_env: str = "") -> str | None:
             "Vault unavailable (path=%s): %s — falling back to env var %s",
             path, exc, fallback_env or "(none)",
         )
-        _cache[path] = {}  # cache empty dict to avoid retry on every call
+        _cache[path] = _VAULT_FAILED  # sentinel: Vault unavailable, use env var fallback
         return os.getenv(fallback_env) if fallback_env else None

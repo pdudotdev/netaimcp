@@ -1,6 +1,6 @@
 """Routing table and policy tools: get_routing, get_routing_policies."""
 from core.inventory import devices
-from platforms.platform_map import get_action
+from platforms.platform_map import get_action, ActionChain
 from transport import execute_command
 from input_models.models import RoutingQuery, RoutingPolicyQuery
 from tools import _error_response
@@ -29,11 +29,18 @@ async def get_routing(params: RoutingQuery) -> dict:
 
     if not params.prefix:
         action = base_cmd
-    elif isinstance(base_cmd, dict):
-        # ActionChain dict: return as-is (prefix filtering done server-side)
-        action = base_cmd
+    elif isinstance(base_cmd, ActionChain):
+        # RESTCONF devices: append prefix to the SSH fallback tier only.
+        # The RESTCONF tier returns the full FIB table (no per-prefix URL filter).
+        new_actions = []
+        for tier, sub_action in base_cmd.actions:
+            if tier == "ssh" and isinstance(sub_action, str):
+                new_actions.append((tier, f"{sub_action} {params.prefix}"))
+            else:
+                new_actions.append((tier, sub_action))
+        action = ActionChain(new_actions)
     else:
-        # IOS CLI string: append prefix to the command
+        # IOS CLI string (asyncssh devices): append prefix to the command
         action = f"{base_cmd} {params.prefix}"
 
     return await execute_command(params.device, action, transport=params.transport)

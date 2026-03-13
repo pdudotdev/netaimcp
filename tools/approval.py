@@ -79,8 +79,8 @@ async def request_approval(params: ApprovalInput) -> dict:
     """
     p = ApprovalInput(**params) if isinstance(params, dict) else params
 
-    # Honour APPROVAL_TIMEOUT_MINUTES env var when the caller used the Pydantic default
-    if p.timeout_minutes == 10:
+    # Honour APPROVAL_TIMEOUT_MINUTES env var when the caller did not explicitly set timeout_minutes
+    if "timeout_minutes" not in p.model_fields_set:
         env_timeout = os.getenv("APPROVAL_TIMEOUT_MINUTES", "").strip()
         if env_timeout.isdigit():
             p = p.model_copy(update={"timeout_minutes": int(env_timeout)})
