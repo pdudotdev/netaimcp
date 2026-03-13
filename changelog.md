@@ -4,21 +4,43 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [v5.3.1]
+
+### 🐛 Bug Fixes / Off-Path Detection
+- **Transient false positive**: the agent incorrectly concluded "transient — recovered without intervention" when the SLA path recovered via an alternate ISP (IBN) rather than the expected path (IAN). IAN Eth0/3 was still admin-down. Root cause: LLM non-determinism in applying Principle 2 (off-path detection). Fixed by two complementary changes:
+  - **Prompt enrichment**: `invoke_claude()` now looks up the SLA path in `sla_paths/paths.json` by source device and injects `scope_devices` + expected path description directly into the prompt. The agent has the scope list immediately, without needing to recall it from an earlier file read.
+  - **Oncall skill**: Step 1 now includes an explicit mandatory scope check (between traceroute call and outcome bullets) that forces hop-by-hop comparison against `scope_devices`. Step 1a Branch A condition updated to explicitly require all hops within scope.
+
+### 🗒️ Session Log Overhaul
+- **`--output-format json`**: Claude is now invoked with `--output-format json`, with stdout redirected to `logs/session-oncall-<timestamp>.md`. This replaces all failed terminal-capture approaches (pipe-pane, capture-pane, capture-pane+alternate-screen-off). The JSON envelope contains `total_cost_usd`, `num_turns`, `usage`, and the full `result` text — reliable, no escape code issues.
+- **Removed dead code**: `_ANSI_RE` regex and `_clean_session_log()` function removed (ANSI stripping was only needed for pipe-pane output). `set-option -g history-limit 50000` and `set-option alternate-screen off` removed from tmux setup.
+- **tmux attach link removed**: the `📺 Session details: tmux attach -t <session>` line is removed from the Discord investigation-started embed. It was useless — shows empty terminal during investigation (alternate screen), "no sessions" after (killed in finally).
+
+### 📊 Watcher Log Enrichment
+- **Session duration and exit**: "Agent session ended." now includes duration and exit classification: `"Agent session ended. Duration: 2m46s, exit: normal"` (or `crash (code N)` / `timeout (force-killed)`).
+- **Session cost**: after session end, `total_cost_usd` and `num_turns` are parsed from the JSON output file and logged: `"Session cost: $0.1141 | turns: 5"`.
+- **Approval audit**: after `_post_discord_session_notification`, watcher reads `data/pending_approval.json` and logs approval status, decided_by, risk level, and devices. If no approval was requested, logs `"No approval requested this session (transient/recovered)"`.
+- **Session cost in Discord embeds**: `post_session_complete` and `post_session_error` now accept `session_cost` and display a 💰 Cost inline field when available.
+
+---
+
 ## [v5.3.0]
 
+### 🐛 Bug Fixes
+- **Duplicate Discord notifications**: fixed a `try/except/else` semantics bug in `invoke_claude()` that caused both a red "Agent Session Error" embed and a green "Session Complete — transient" embed to be posted when the agent crashed. Python's `try/except/else` fires the `else` whenever the `try` body raises no exception — not only when no `if/elif` branch matched. Fixed by moving `post_session_complete` into the `else` of the `if/elif` chain inside the `try`. The notification block is now extracted into `_post_discord_session_notification()` for testability.
+- **Crash cooldown UnboundLocalError**: `main()` was missing `global _last_crash_ts` declaration. The `_last_crash_ts = None` assignment (cooldown expiry clear) caused Python to treat the variable as local throughout the function, crashing with `UnboundLocalError` on every SLA Down event. Recovery events were unaffected (they `continue` before the cooldown check). Result: watcher appeared to run but silently crashed on every Down event.
+
 ### 🔒 Agent Session Safety
+- **Crash cooldown**: after an agent crash (non-zero exit code), new sessions are suppressed for `CRASH_COOLDOWN_MINUTES` (default 5) to prevent wasting API calls when the failure is systemic (e.g. API credit limits, authentication errors). The cooldown timestamp is cleared automatically once the window expires. The cooldown state is module-level and independent of Discord configuration.
 - **Agent timeout**: `_wait_for_tmux_process_exit()` now enforces a deadline (default 30 min). If Claude doesn't exit within the timeout, the tmux session is force-killed via `tmux kill-session`, the watcher logs a warning, and the lock file is released so new sessions can proceed. Configurable via `AGENT_TIMEOUT_MINUTES` env var.
-- **tmux session cleanup**: after the agent exits and the session log is cleaned, the tmux session is explicitly killed (`tmux kill-session`). Sessions no longer accumulate indefinitely. Full output is preserved in `logs/session-oncall-<timestamp>.md`.
+- **tmux session cleanup**: after the agent exits, the tmux session is explicitly killed (`tmux kill-session`). Sessions no longer accumulate indefinitely.
 
 ### 📢 Discord UX Improvements
 - **Investigation-started notification**: when the watcher spawns an agent session, it immediately posts a blue informational embed to Discord ("🚨 NEW ISSUE: DEVICE {name} — Investigation Started") so the operator is notified before the investigation even begins.
+- **Progress updates**: after 60 seconds of active investigation the watcher posts 🔍 "Still investigating network state..." and after 120 seconds 🔍 "Investigation ongoing, please wait..." to Discord. Each message only fires if the agent is still running at that mark — crashes before the threshold produce no progress message.
 - **Acknowledgment messages**: after the operator reacts with ✅ or ❌, a confirmation reply is posted ("Approval received from @user — aiNOC is proceeding with the fix." / "Rejection received from @user — aiNOC will not apply the fix.").
 - **Jira ticket in outcome embeds**: `post_approval_outcome` now reads the issue key from the approval state file and includes a "Ticket SUP-xx updated" field in the Discord outcome embed.
 - **Removed duplicate expiry message**: `request_approval` no longer auto-posts an expiry outcome. All outcome posts (approved, rejected, expired) are handled by the agent via `post_approval_outcome`, which includes the Jira ticket reference. Previously, expiry caused two identical-looking Discord messages.
-
-### 🧹 Session Log Cleanup
-- **ANSI escape sequence stripping**: `_clean_session_log()` now performs a two-pass cleanup. Pass 1: regex strips ESC-prefixed sequences (CSI, OSC, Fe). Pass 2: removes all remaining non-printable characters (bare BEL, NUL, partial sequence fragments). Session logs are now clean plain text.
-- **Desktop notification simplified**: `notify_operator()` now sends a single-line `notify-send` popup only. Terminal writes (`/dev/pts`) were removed in v5.2.0; redundant "Attach with: tmux attach" line also removed.
 
 ### 🔒 Approval Gate Hardening
 - When Discord is not configured, `request_approval` writes `status: "SKIPPED"` (previously was writing `APPROVED`). The `push_config` gate rejects SKIPPED status — no Discord = no push, enforced at code level.
@@ -28,8 +50,9 @@ All notable changes to this project are documented in this file.
 ### 🧪 Testing
 - UT-017 (`test_approval.py`): SKIPPED status assertion added; `post()` method added to MockSessions for ack message tests; `post_approval_outcome` tests updated for Jira `issue_key` param.
 - UT-018 (`test_config_approval_gate.py`): SKIPPED added to bad-status parametrize list.
+- UT-019 (`test_watcher_discord_notifications.py`): 10 tests covering Discord notification exclusivity (crash/timeout/watcher-exc → error only; normal exit → complete only; approval-requested → neither) and crash cooldown behaviour (timestamp set on crash, skips within window, clears after expiry, not set on normal exit).
 - Integration tests (`test_mcp_tools.py`): all 8 push_config tests now call `_approve_devices()` before each push.
-- 430 → 443 total tests passing.
+- 443 → 452 total tests passing.
 
 ---
 

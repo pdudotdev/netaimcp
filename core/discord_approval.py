@@ -298,7 +298,7 @@ async def post_investigation_started(
     if not is_configured():
         return
 
-    ticket_line = f"Jira ticket: **{issue_key}**" if issue_key else "No Jira ticket"
+    ticket_line = f"**Jira ticket:** {issue_key}" if issue_key else "No Jira ticket"
 
     embed = {
         "title": f"🚨 NEW ISSUE: DEVICE {device_name} — Investigation Started",
@@ -335,23 +335,42 @@ async def post_session_complete(
     device_ip: str,
     issue_key: str | None = None,
     session_name: str | None = None,
+    session_cost: float | None = None,
+    session_duration: str | None = None,
+    approval_used: bool = False,
 ) -> None:
-    """Post a green embed when the agent session exits normally without proposing a fix (transient/self-recovered)."""
+    """Post a green embed when the agent session exits normally.
+
+    If approval_used is False: describes the outcome as transient/self-recovered.
+    If approval_used is True: posts session metrics only; the approval outcome embed already
+    covers the fix result.
+    """
     if not is_configured():
         return
 
     ticket_line = f"Jira ticket: **{issue_key}**" if issue_key else "No Jira ticket"
 
-    embed = {
-        "title": f"✅ Session Complete — {device_name}",
-        "description": (
+    fields: list[dict] = [
+        {"name": "📡 Device", "value": f"{device_name} ({device_ip})", "inline": True},
+    ]
+    if session_duration is not None:
+        fields.append({"name": "⏱ Duration", "value": session_duration, "inline": True})
+    if session_cost is not None:
+        fields.append({"name": "💰 Cost", "value": f"${session_cost:.4f}", "inline": True})
+
+    if approval_used:
+        description = f"Session ended — see approval outcome above for details.\n\n{ticket_line}"
+    else:
+        description = (
             "Issue appears to be transient — recovered without intervention. No fix needed.\n\n"
             f"{ticket_line}"
-        ),
+        )
+
+    embed = {
+        "title": f"✅ Session Complete — {device_name}",
+        "description": description,
         "color": 0x00B300,  # green
-        "fields": [
-            {"name": "📡 Device", "value": f"{device_name} ({device_ip})", "inline": True},
-        ],
+        "fields": fields,
         "footer": {"text": f"Session: {session_name}" if session_name else "Session ended"},
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
@@ -380,6 +399,8 @@ async def post_session_error(
     error_type: str = "unknown",  # "timeout" | "crash" | "watcher_error" | "unknown"
     exit_code: int | None = None,
     log_tail: str | None = None,
+    session_cost: float | None = None,
+    session_duration: str | None = None,
 ) -> None:
     """Post a red error embed when the agent session ends abnormally (timeout, crash, watcher error)."""
     if not is_configured():
@@ -400,6 +421,10 @@ async def post_session_error(
     ]
     if exit_code is not None:
         fields.append({"name": "Exit Code", "value": str(exit_code), "inline": True})
+    if session_duration is not None:
+        fields.append({"name": "⏱ Duration", "value": session_duration, "inline": True})
+    if session_cost is not None:
+        fields.append({"name": "💰 Cost", "value": f"${session_cost:.4f}", "inline": True})
     if log_tail:
         fields.append({
             "name": "📋 Session Log (last lines)",
@@ -433,6 +458,23 @@ async def post_session_error(
         log.info("Session error notification posted to Discord (error_type=%s)", error_type)
     except Exception as exc:
         log.warning("Failed to post session error to Discord: %s", exc)
+
+
+async def post_progress_update(message: str) -> None:
+    """Post a plain text progress message to the Discord channel."""
+    if not is_configured():
+        return
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{DISCORD_API}/channels/{_channel()}/messages",
+                headers=_json_headers(),
+                json={"content": message},
+            ) as resp:
+                if resp.status not in (200, 201):
+                    log.warning("Progress update post failed (%s)", resp.status)
+    except Exception as exc:
+        log.warning("Failed to post progress update: %s", exc)
 
 
 async def post_outcome(

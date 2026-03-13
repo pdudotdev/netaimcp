@@ -17,6 +17,7 @@ import logging
 import re
 import json
 import os
+import shlex
 import shutil
 import time
 import subprocess
@@ -43,6 +44,10 @@ CLAUDE_BIN = "/home/mcp/.local/bin/claude"
 
 # Module-level logger — handlers are configured by setup_watcher_logging() in main()
 _wlog = logging.getLogger("ainoc.watcher")
+
+# Crash cooldown: timestamp of last agent crash (UTC). Set by _post_discord_session_notification.
+# Cleared when the cooldown window expires (checked in main loop).
+_last_crash_ts: datetime | None = None
 
 # SLA Down patterns (Cisco IOS/IOS-XE only)
 SLA_DOWN_RE = re.compile(
@@ -232,12 +237,19 @@ def scan_for_recovery_events(trigger_event, session_start, session_end, device_m
         _wlog.warning("Could not scan for recovery events: %s", e)
 
 
-def _wait_for_tmux_process_exit(session_name: str, timeout_minutes: int = 30) -> tuple:
+def _wait_for_tmux_process_exit(
+    session_name: str,
+    timeout_minutes: int = 30,
+    device_name: str | None = None,
+) -> tuple:
     """Block until the process inside the tmux session has exited or the timeout fires.
 
     Uses pane_dead + pane_dead_status format flags so that remain-on-exit
     sessions still unblock the watcher as soon as Claude finishes, and the
     exit code is captured for error detection.
+
+    Posts a single Discord progress update after 60 seconds if the agent is still running,
+    to keep the operator informed during long investigations.
 
     Returns:
         (exit_code, timed_out):
@@ -246,7 +258,9 @@ def _wait_for_tmux_process_exit(session_name: str, timeout_minutes: int = 30) ->
         - (None, False) — session gone before pane status was available
         - (None, True)  — timeout; session was force-killed
     """
-    deadline = time.monotonic() + timeout_minutes * 60
+    start = time.monotonic()
+    progress_count = 0
+    deadline = start + timeout_minutes * 60
     while time.monotonic() < deadline:
         result = subprocess.run(
             ["tmux", "list-panes", "-t", session_name, "-F", "#{pane_dead},#{pane_dead_status}"],
@@ -265,6 +279,23 @@ def _wait_for_tmux_process_exit(session_name: str, timeout_minutes: int = 30) ->
                 except ValueError:
                     exit_code = None
                 return (exit_code, False)
+
+        # Post progress updates at 60s and 120s while the agent is still running
+        if device_name and discord_approval.is_configured():
+            elapsed_s = time.monotonic() - start
+            msg = None
+            if progress_count == 0 and elapsed_s >= 60:
+                msg = "\U0001f50d Still investigating network state..."
+                progress_count = 1
+            elif progress_count == 1 and elapsed_s >= 120:
+                msg = "\U0001f50d Investigation ongoing, please wait..."
+                progress_count = 2
+            if msg:
+                try:
+                    asyncio.run(discord_approval.post_progress_update(msg))
+                except Exception:
+                    pass
+
         time.sleep(2)
     # Timeout — force-kill the hung session so the watcher can recover
     _wlog.warning(
@@ -284,35 +315,6 @@ def _read_log_tail(path: Path, lines: int = 10) -> str | None:
     except Exception:
         return None
 
-
-_ANSI_RE = re.compile(
-    r'\x1b(?:'
-    r'[@-Z\\-_]'           # Fe sequences (single char after ESC)
-    r'|\[[0-?]*[ -/]*[@-~]'  # CSI sequences (ESC [ ... final)
-    r'|\][^\x07]*\x07'     # OSC sequences terminated by BEL
-    r'|\][^\x1b]*\x1b\\'   # OSC sequences terminated by ST
-    r')'
-)
-
-
-def _clean_session_log(path: Path) -> None:
-    """Strip ANSI escape sequences and non-printable characters from a session log."""
-    try:
-        raw = path.read_text(errors="replace")
-        # Pass 1: strip ESC-prefixed sequences (CSI, OSC, Fe)
-        cleaned = _ANSI_RE.sub("", raw)
-        # Pass 2: strip remaining non-printable chars (bare BEL, NUL, partial sequences)
-        # Keep: \t (0x09), \n (0x0a), \r (0x0d), and printable ASCII 0x20-0x7e
-        cleaned = re.sub(r"[^\x09\x0a\x0d\x20-\x7e]", "", cleaned)
-        # Pass 3: strip orphaned CSI parameter remnants — lines of only digits and semicolons
-        # (e.g., "9;4;0;0;" left when ESC was stripped by Pass 2 but printable params survived)
-        cleaned = re.sub(r"\n[0-9;]+$", "", cleaned)      # trailing line
-        cleaned = re.sub(r"\n[0-9;]+\n", "\n", cleaned)   # interior lines
-        if cleaned != raw:
-            path.write_text(cleaned)
-            _wlog.debug("Session log cleaned: %s", path.name)
-    except Exception as exc:
-        _wlog.warning("Could not clean session log %s: %s", path, exc)
 
 
 def notify_operator(session_name: str):
@@ -375,12 +377,109 @@ def _document_deferred_events(deferred_events: list, issue_key: str | None) -> N
             _wlog.warning("Failed to post deferred failures to Discord: %s", exc)
 
 
+def _post_discord_session_notification(
+    *,
+    timed_out: bool,
+    watcher_exc: "Exception | None",
+    exit_code: "int | None",
+    device_name: str,
+    device_ip: str,
+    issue_key: "str | None",
+    session_name: str,
+    session_start: datetime,
+    session_json: Path,
+    session_cost: "float | None" = None,
+    session_duration: "str | None" = None,
+) -> None:
+    """Post the appropriate Discord embed for a completed agent session.
+
+    Always posts a "closing session" plain-text message first, then exactly one embed:
+    - Timeout → red "Agent Session Error" (error_type="timeout")
+    - Watcher exception → red "Agent Session Error" (error_type="watcher_error")
+    - Non-zero exit code → red "Agent Session Error" (error_type="crash")
+    - Normal exit (code 0 or None) → green "Session Complete"
+    """
+    if not discord_approval.is_configured():
+        return
+
+    try:
+        asyncio.run(discord_approval.post_progress_update(
+            "🧹 Closing the session now.\n"
+            "Any new lessons saved to `lessons.md`\n"
+            "Waiting for the session summary..."
+        ))
+    except Exception as exc:
+        _wlog.warning("Failed to post closing message to Discord: %s", exc)
+
+    try:
+        if timed_out:
+            _wlog.warning("Session %s timed out — posting error notification to Discord", session_name)
+            asyncio.run(discord_approval.post_session_error(
+                device_name=device_name,
+                device_ip=device_ip,
+                issue_key=issue_key,
+                session_name=session_name,
+                error_type="timeout",
+                session_cost=session_cost,
+                session_duration=session_duration,
+            ))
+        elif watcher_exc is not None:
+            _wlog.warning("Watcher exception — posting error notification to Discord")
+            asyncio.run(discord_approval.post_session_error(
+                device_name=device_name,
+                device_ip=device_ip,
+                issue_key=issue_key,
+                session_name=session_name,
+                error_type="watcher_error",
+                log_tail=str(watcher_exc),
+                session_cost=session_cost,
+                session_duration=session_duration,
+            ))
+        elif exit_code is not None and exit_code != 0:
+            _wlog.warning("Agent exited with code %d — posting error notification to Discord", exit_code)
+            log_tail = _read_log_tail(session_json)
+            asyncio.run(discord_approval.post_session_error(
+                device_name=device_name,
+                device_ip=device_ip,
+                issue_key=issue_key,
+                session_name=session_name,
+                error_type="crash",
+                exit_code=exit_code,
+                log_tail=log_tail,
+                session_cost=session_cost,
+                session_duration=session_duration,
+            ))
+        else:
+            # Normal exit — always post session-end embed so cost + duration appear in Discord
+            # regardless of whether approval was used. When approval was used, the description
+            # defers to the approval outcome embed (posted earlier by the agent) for fix details.
+            approval_file = PROJECT_DIR / "data" / "pending_approval.json"
+            approval_was_requested = False
+            if approval_file.exists():
+                try:
+                    mtime = datetime.fromtimestamp(approval_file.stat().st_mtime, tz=timezone.utc)
+                    approval_was_requested = mtime >= session_start
+                except Exception:
+                    pass
+            asyncio.run(discord_approval.post_session_complete(
+                device_name=device_name,
+                device_ip=device_ip,
+                issue_key=issue_key,
+                session_name=session_name,
+                session_cost=session_cost,
+                session_duration=session_duration,
+                approval_used=approval_was_requested,
+            ))
+    except Exception as discord_exc:
+        _wlog.warning("Failed to post Discord notification: %s", discord_exc)
+
+
 def invoke_claude(event, device_map):
     """
     Invoke Claude Code with SLA event context in a detached tmux session (print mode).
     Claude processes the prompt autonomously and exits when done — no interactive CLI.
-    Session output is streamed to logs/session-oncall-<timestamp>.md via tmux pipe-pane.
-    The operator can observe live via: tmux attach -t <session_name>
+    Output is captured via --output-format json to logs/session-oncall-<timestamp>.md
+    (contains full response + cost/usage metadata).
     After the session, scans for deferred failures and documents them to Jira + Discord.
     """
     device_ip = event.get("device", event.get("source_ip", "unknown"))
@@ -403,6 +502,29 @@ def invoke_claude(event, device_map):
         "it contains lessons from past On-Call cases that may be directly relevant."
     )
     _wlog.debug("lessons.md reminder injected into agent prompt")
+
+    # Inject SLA path context so the agent has scope_devices immediately available
+    # (reduces risk of off-path transient false positives without requiring paths.json lookup)
+    try:
+        paths_file = PROJECT_DIR / "sla_paths" / "paths.json"
+        paths_data = json.loads(paths_file.read_text())
+        sla_path = next(
+            (p for p in paths_data.get("paths", []) if p.get("source_device") == device_name),
+            None,
+        )
+        if sla_path:
+            scope_str = ", ".join(sla_path.get("scope_devices", []))
+            prompt += (
+                f"\n\nSLA Path context (from paths.json):\n"
+                f"  Path ID       : {sla_path.get('id', '?')}\n"
+                f"  Expected path : {sla_path.get('description', '?')}\n"
+                f"  Scope devices : {scope_str}\n"
+                f"  IMPORTANT: After traceroute, verify EVERY hop is in scope_devices. "
+                f"If ANY hop is NOT in scope, this is an off-path transit — do NOT conclude transient."
+            )
+            _wlog.debug("SLA path context injected for %s (path: %s)", device_name, sla_path.get("id"))
+    except Exception as e:
+        _wlog.debug("Could not inject SLA path context: %s", e)
 
     # Create Jira incident ticket before starting the Claude session
     issue_key = asyncio.run(jira_client.create_issue(
@@ -460,101 +582,107 @@ def invoke_claude(event, device_map):
     # Ensure logs directory exists
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
-    session_log = LOGS_DIR / f"session-{session_name}.md"
+    session_json = LOGS_DIR / f".session-{session_name}.tmp"
 
     exit_code: int | None = None
     timed_out: bool = False
     watcher_exc: Exception | None = None
+    session_cost: float | None = None
 
     try:
+        # Run Claude in print mode with JSON output — stdout goes to a temp file.
+        # --output-format json wraps the response in a JSON envelope with cost/usage metadata.
+        # The temp file is deleted after cost is parsed; no session-oncall md files are kept.
+        cmd = (
+            f"{shlex.quote(CLAUDE_BIN)} -p --output-format json "
+            f"{shlex.quote(prompt)} > {shlex.quote(str(session_json))}"
+        )
         subprocess.run(
-            ["tmux", "new-session", "-d", "-s", session_name, CLAUDE_BIN, "-p", prompt],
+            ["tmux", "new-session", "-d", "-s", session_name, "bash", "-c", cmd],
             cwd=PROJECT_DIR,
         )
         subprocess.run(["tmux", "set-option", "-t", session_name, "mouse", "on"], capture_output=True)
-        subprocess.run(["tmux", "set-option", "-t", session_name, "history-limit", "5000"], capture_output=True)
-        # Keep the tmux session alive after Claude exits so operators can review history
         subprocess.run(["tmux", "set-option", "-t", session_name, "remain-on-exit", "on"], capture_output=True)
-        # Stream all pane output to a session log file for post-incident review
-        subprocess.run(
-            ["tmux", "pipe-pane", "-t", session_name, f"cat >> {session_log}"],
-            capture_output=True,
-        )
         _wlog.info("Agent invoked in tmux session: %s", session_name)
-        _wlog.info("Session log: %s", session_log)
         notify_operator(session_name)
         # Poll until Claude's process exits (not until the session is destroyed)
         agent_timeout = int(os.getenv("AGENT_TIMEOUT_MINUTES", "30"))
-        exit_code, timed_out = _wait_for_tmux_process_exit(session_name, timeout_minutes=agent_timeout)
+        exit_code, timed_out = _wait_for_tmux_process_exit(
+            session_name, timeout_minutes=agent_timeout, device_name=device_name,
+        )
     except Exception as exc:
         watcher_exc = exc
         _wlog.exception("Unexpected exception in invoke_claude: %s", exc)
     finally:
         session_end = datetime.now(timezone.utc)
         cleanup_lock()
-        if session_log.exists():
-            _clean_session_log(session_log)
-        # Kill the dead tmux session — session log preserves all output
         subprocess.run(["tmux", "kill-session", "-t", session_name], capture_output=True)
-        _wlog.info("Agent session ended.")
 
-    # Post Discord error notification for abnormal session outcomes
-    if discord_approval.is_configured():
-        try:
-            if timed_out:
-                _wlog.warning("Session %s timed out — posting error notification to Discord", session_name)
-                asyncio.run(discord_approval.post_session_error(
-                    device_name=device_name,
-                    device_ip=device_ip,
-                    issue_key=issue_key,
-                    session_name=session_name,
-                    error_type="timeout",
-                ))
-            elif watcher_exc is not None:
-                _wlog.warning("Watcher exception — posting error notification to Discord")
-                asyncio.run(discord_approval.post_session_error(
-                    device_name=device_name,
-                    device_ip=device_ip,
-                    issue_key=issue_key,
-                    session_name=session_name,
-                    error_type="watcher_error",
-                    log_tail=str(watcher_exc),
-                ))
-            elif exit_code is not None and exit_code != 0:
-                _wlog.warning("Agent exited with code %d — posting error notification to Discord", exit_code)
-                log_tail = _read_log_tail(session_log)
-                asyncio.run(discord_approval.post_session_error(
-                    device_name=device_name,
-                    device_ip=device_ip,
-                    issue_key=issue_key,
-                    session_name=session_name,
-                    error_type="crash",
-                    exit_code=exit_code,
-                    log_tail=log_tail,
-                ))
-        except Exception as discord_exc:
-            _wlog.warning("Failed to post session error to Discord: %s", discord_exc)
+        # Log session end with duration and exit classification
+        duration = session_end - session_start
+        dur_str = f"{int(duration.total_seconds() // 60)}m{int(duration.total_seconds() % 60)}s"
+        if timed_out:
+            exit_label = "timeout (force-killed)"
+        elif exit_code is None or exit_code == 0:
+            exit_label = "normal"
         else:
-            # Normal exit — post green "transient" embed if no approval was requested this session.
-            # Sessions that went through the approval flow already have Discord closure via outcome embeds.
-            approval_file = PROJECT_DIR / "data" / "pending_approval.json"
-            approval_was_requested = False
-            if approval_file.exists():
-                try:
-                    mtime = datetime.fromtimestamp(approval_file.stat().st_mtime, tz=timezone.utc)
-                    approval_was_requested = mtime >= session_start
-                except Exception:
-                    pass
-            if not approval_was_requested and discord_approval.is_configured():
-                try:
-                    asyncio.run(discord_approval.post_session_complete(
-                        device_name=device_name,
-                        device_ip=device_ip,
-                        issue_key=issue_key,
-                        session_name=session_name,
-                    ))
-                except Exception as discord_exc:
-                    _wlog.warning("Failed to post session complete to Discord: %s", discord_exc)
+            exit_label = f"crash (code {exit_code})"
+        _wlog.info("Agent session ended. Duration: %s, exit: %s", dur_str, exit_label)
+
+        # Parse session cost from JSON output temp file (kept until after Discord notification)
+        try:
+            if session_json.exists():
+                session_data = json.loads(session_json.read_text())
+                session_cost = session_data.get("total_cost_usd")
+                if session_cost is not None:
+                    _wlog.info("Session cost: $%.4f", session_cost)
+        except Exception:
+            pass  # best-effort — file may be incomplete if agent crashed
+
+    # Post Discord notification for the session outcome (exactly one embed per session).
+    # session_json must still exist at this point — crash embeds may read a log tail from it.
+    _post_discord_session_notification(
+        timed_out=timed_out,
+        watcher_exc=watcher_exc,
+        exit_code=exit_code,
+        device_name=device_name,
+        device_ip=device_ip,
+        issue_key=issue_key,
+        session_name=session_name,
+        session_start=session_start,
+        session_json=session_json,
+        session_cost=session_cost,
+        session_duration=dur_str,
+    )
+
+    # Delete the temp JSON output file now that Discord notification is done
+    session_json.unlink(missing_ok=True)
+
+    # Log approval outcome to watcher log (best-effort audit trail)
+    approval_file = PROJECT_DIR / "data" / "pending_approval.json"
+    try:
+        if approval_file.exists():
+            mtime = datetime.fromtimestamp(approval_file.stat().st_mtime, tz=timezone.utc)
+            if mtime >= session_start:
+                state = json.loads(approval_file.read_text())
+                _wlog.info(
+                    "Approval: %s | decided_by: %s | risk: %s | devices: %s",
+                    state.get("status", "?"),
+                    state.get("decided_by", "n/a"),
+                    state.get("risk_level", "?"),
+                    ", ".join(state.get("devices", [])),
+                )
+            else:
+                _wlog.info("No approval requested this session (transient/recovered)")
+    except Exception:
+        pass  # best-effort
+
+    # Crash cooldown: record crash time so the main loop can suppress the next session.
+    # This is set unconditionally (regardless of Discord config) so the cooldown works
+    # even when Discord notifications are not enabled.
+    if exit_code is not None and exit_code != 0:
+        global _last_crash_ts
+        _last_crash_ts = datetime.now(timezone.utc)
 
     # Scan for Down failures that arrived during the session
     deferred = scan_for_deferred_events(event, session_start, session_end, device_map)
@@ -628,6 +756,7 @@ def parse_args():
 
 def main():
     """Main watcher loop."""
+    global _last_crash_ts
     setup_watcher_logging(WATCHER_LOG)
 
     from core.jira_client import _is_configured as jira_configured
@@ -648,6 +777,7 @@ def main():
         cleanup_lock()
 
     _wlog.info("Watcher started. Monitoring /var/log/network.json for IP SLA Down events.")
+    _wlog.info("Crash cooldown: %s min", os.getenv("CRASH_COOLDOWN_MINUTES", "5"))
 
     device_map = load_device_map()
 
@@ -675,6 +805,22 @@ def main():
         if LOCK_FILE.exists() and not is_lock_stale():
             _wlog.info("SKIPPED (agent busy) - %s: %s", event.get("device", event.get("source_ip", "?")), msg)
             continue
+
+        # Crash cooldown: suppress new sessions for a window after a crash
+        if _last_crash_ts is not None:
+            cooldown_min = int(os.getenv("CRASH_COOLDOWN_MINUTES", "5"))
+            elapsed = (datetime.now(timezone.utc) - _last_crash_ts).total_seconds()
+            if elapsed < cooldown_min * 60:
+                remaining = (cooldown_min * 60 - elapsed) / 60
+                _wlog.warning(
+                    "SKIPPED (crash cooldown, %.1f min remaining) - %s: %s",
+                    remaining,
+                    event.get("device", event.get("source_ip", "?")),
+                    msg,
+                )
+                continue
+            # Cooldown window expired — clear the timestamp and proceed
+            _last_crash_ts = None
 
         # Clean up stale lock if present
         if is_lock_stale():

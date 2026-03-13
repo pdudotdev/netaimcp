@@ -1,10 +1,12 @@
 # 🛡️ System Safeguards & Operational Controls
 
-A structured overview of the architectural protections that prevent unsafe automation, duplicate execution, hallucinations, runaway costs, and policy drift.
+Architectural protections that prevent unsafe automation, duplicate execution, and unauthorized configuration changes. Organized by enforcement type: code-enforced (hard stops) → config-enforced (deny rules / env vars) → behavioral (prompt-level).
 
 ---
 
-# 🤖 Agent Autonomy Approval
+# 🔒 Code-Enforced Controls
+
+These mechanisms are enforced in code — they block unsafe actions regardless of prompt instructions.
 
 ## ✅ Code-Level Approval Gate (v5.2)
 `push_config` reads `data/pending_approval.json` before executing any configuration change. Requirements:
@@ -17,273 +19,70 @@ Without a valid approval record, `push_config` returns an error and no commands 
 
 After a successful push, the record is marked `"EXECUTED"` — a second push requires a new `request_approval` call.
 
-## ✅ Discord-Primary Approval
-- **When Discord is configured**: `request_approval` posts a rich embed and polls for ✅/❌ emoji reaction (up to `APPROVAL_TIMEOUT_MINUTES`, default 10). The operator approves remotely via Discord.
-- **When Discord is not configured**: `request_approval` writes a `SKIPPED` record (blocking the code gate) and returns `"skipped"`. The agent logs to Jira that no approval channel is available and exits without pushing config.
-- **If Discord approval expires**: the agent calls `post_approval_outcome(decision="expired")` to post the expiry outcome to Discord (with Jira ticket reference). The agent logs to Jira and exits.
-- **Investigation-started notification**: the watcher posts a blue informational Discord embed before the agent session begins, so the operator is aware immediately.
-- **Acknowledgment messages**: after ✅/❌ reaction, a confirmation reply is posted to Discord ("Approval received from @user…" / "Rejection received from @user…").
-- `post_approval_outcome` posts the final outcome (approved+verified, rejected, expired) as a Discord reply — includes Jira ticket reference from the approval state file.
-
-## ✅ Prompt-Level No-Auto-Push Rule
-- CLAUDE.md Pitfall #16: "Never call `push_config` without approval"
-- CLAUDE.md On-Call steps 5–6 mandate `request_approval` before `push_config`
-- Oncall skill Step 4 reinforces the exact tool sequence: `assess_risk` → `request_approval` → handle decision → `push_config` → verify → `post_approval_outcome`
-- Two enforcement layers: code gate (architectural) + prompt instructions (behavioral)
-
-## ✅ Permission-Based Tool System
-- User can deny any tool call:
-  - Edit
-  - Bash
-  - `push_config`
-- Agent must handle denial gracefully
-- Skips blocked step without failure or escalation
-
----
-
-# ⚡ Agent Storms & Duplicate Invocations
-
-## ✅ Lock File Mechanism (`oncall/oncall.lock`)
-- Single-instance guard
-- Prevents multiple agents from running simultaneously
-
-## ✅ PID Liveness Check (`is_lock_stale()`)
-- Detects dead processes
-- Cleans stale locks automatically
-- Prevents deadlocks
-
-## ✅ Deferred Events Handling
-- Events arriving during an active session:
-  - Captured by `scan_for_deferred_events()` after the session ends
-  - Documented to Jira (comment on original ticket) and Discord (informational embed)
-  - Not lost, not re-triggered mid-session, not investigated automatically
-- No second agent session is spawned — deferred failures require manual operator follow-up if still active
+## ✅ Lock File + PID Liveness (`oncall/oncall.lock`)
+- Single-instance guard — prevents multiple agents from running simultaneously
+- `is_lock_stale()` detects dead processes and cleans stale locks automatically, preventing deadlocks from crashed processes
 
 ## ✅ Drain Mechanism (`drain[0]` flag)
-- After session ends:
-  - Watcher seeks to EOF
-  - Skips buffered events
-- Prevents re-processing the same failure N times
+After session ends, the watcher seeks to EOF and skips buffered events — prevents re-processing the same failure N times.
 
----
-
-# 🔁 Command Repetition & Redundant Investigation
-
-## ✅ Core Troubleshooting Methodology (6 Principles)
-
-Ordered, deterministic workflow that prevents repetition:
-
-### P1 — Map Expected Path
-- Read `INTENT.json`
-- Define investigation scope upfront
-
-### P2 — Single Localization Step
-- One traceroute only
-- Prevents N traceroutes
-
-### P3 — Mandatory Basics-First Gate
-- `get_interfaces`
-- `get_neighbors`
-- Must pass before deeper tools
-
-### P4 — Never Chase Downstream
-- Missing route?
-- Check source’s neighbors only
-
-### P5 — One Device at a Time
-- Fully resolve before moving on
-
-### P6 — Simple Before Complex
-- Ordered 10-item checklist
-- Stop at first mismatch
-
----
-
-## ✅ Decision Gates in Principle 3
-
-- Interfaces down → STOP
-- Neighbors missing → Go directly to Adjacency Checklist
-- Skip:
-  - LSDB analysis
-  - Redistribution checks
-  - Policy inspection
-
-Prevents premature deep-dives.
-
----
-
-# 🧠 Hallucinations & Off-Scope Investigation
-
-## ✅ Explicit `scope_devices` List (`sla_paths/paths.json`)
-- Each SLA path defines exact investigation boundary
-- Pitfall #8 warns against touching out-of-scope devices
-
-## ✅ `INTENT.json` Context Requirement
-- Principle 1 mandates reading intent first
-- Prevents:
-  - Inventing device roles
-  - Making up areas
-  - Fabricating topology
-
-## ✅ Skill Prerequisites
-- Each protocol skill requires basics-first gate
-- PREREQUISITE note blocks skipping steps
-
-## ✅ Pitfall #10
-- "Do not skip adjacency check before protocol skill deep-dive"
-- Prevents premature LSDB reading
-
----
-
-# 💰 Increased Costs & Tool Misuse
-
-## ✅ MCP Tool Map (`platforms/mcp_tool_map.json`)
-- Maps every tool to supported queries
-- Pitfall #1 mandates checking this before using `run_show`
-- Forces:
-  - Cheaper
-  - Targeted
-  - Structured tools first
-
-## ✅ No Task Subagents for MCP Calls
-- Pitfall #6 forbids using subagents for network operations
-- Subagents do not inherit MCP connection
-- Forces direct main-session calls
-- Faster and cheaper
-
-## ✅ No Bash SSH to Devices
-- Pitfall #5 forbids bypassing MCP abstraction layer
-- Prevents uncontrolled SSH storms
-
----
-
-# 📝 Case Documentation & Lesson Integrity
-
-## ✅ Mandatory Case Documentation
-- Every On-Call case documented as a Jira ticket comment (see `cases/case_format.md` for structure)
-- `cases/cases.md` was replaced by Jira Service Management (removed in v4.0)
-- Prevents duplicate documentation
-- Enables lesson mining via `cases/lessons.md`
-
-## ✅ Lessons Curation (`cases/lessons.md`)
-- Pre-curated top 10 lessons
-- Must be read at session start
-- Agent must decide:
-  - Add new lesson?
-  - Promote over older one?
-- Prevents invented lessons
-
-## ✅ Case Format Structure (`cases/case_format.md`)
-- Standardized schema
-- Enforces consistent documentation
-- Prevents ad-hoc notes
-
-## ✅ Task Tracking for Documentation
-- Documentation marked as final task
-- Case cannot close without it
-
----
-
-# 🔐 Policy Integrity
-
-## ✅ Read-Only Policy Files
-The following cannot be modified by the agent:
-
-- `inventory/NETWORK.json`
-- `intent/INTENT.json`
-
-Prevents:
-- Accidental drift
-- Intentional policy modification
-
-## ✅ External Vector Configuration
-- Log pipeline (`/etc/vector/vector.yaml`)
-- Managed outside the agent
-- Cannot be corrupted or modified
-
----
-
-# 📟 On-Call Mode Isolation
-
-## ✅ Focus Enforcement
-- "You will NOT be invoked or deviated from the current case"
-- Prevents multitasking
-- Prevents context loss
-
-## ✅ Deferred Documentation Workflow
-- Events during active session:
-  - Documented to Jira (comment) and Discord (informational embed) after session ends
-  - No second agent session spawned — manual operator follow-up required
-- Prevents abandoning deferred failures
-
----
-
-# 🔒 Security Controls
-
-## ✅ `run_show` Read-Only Enforcement (Pitfall #13)
-- `ShowCommand` Pydantic model validates at MCP boundary
+## ✅ `run_show` Read-Only Enforcement
+`ShowCommand` Pydantic model validates at the MCP boundary before execution:
 - CLI commands (IOS): must start with `show ` (case-insensitive)
 - RESTCONF JSON actions: must have `url` key with `method=GET` only
-- Any other input raises `ValidationError` before execution
-- Prevents config bypass via `run_show`
-
-## ✅ Syslog Prompt Injection Mitigation (Strengthened in v5.0)
-- Syslog messages sanitized via character allowlist (alphanumeric + safe network punctuation only) — all other characters replaced with spaces
-- Applied to all event fields before injection into the agent prompt and before writing to deferred/pending event files
-- Delimiter markers isolate log content from instructions
-- **Known residual risk**: No sanitizer can fully prevent LLM prompt injection from adversarial ASCII text; this is a defense-in-depth measure
+- Any other input raises `ValidationError` — prevents config bypass via `run_show`
 
 ## ✅ Expanded Forbidden Command Set (Updated in v5.0)
-- 21 blocked patterns in `tools/config.py`
-- Covers: reload, erase, write erase, format, delete, copy run, write mem, configure replace, username manipulation, enable secret/password, snmp-server community, crypto key ops, transport input none, and others
-- Applied before any `push_config` execution
-- **Known residual risk**: IOS abbreviations (e.g. `wr er` instead of `write erase`) bypass substring matching; a full IOS parser would be required to close this gap completely
+21 blocked patterns in `tools/config.py`, applied before any `push_config` execution. Covers: reload, erase, write erase, format, delete, copy run, write mem, configure replace, username manipulation, enable secret/password, snmp-server community, crypto key ops, transport input none, and others.
+
+**Known residual risk**: IOS abbreviations (e.g. `wr er` instead of `write erase`) bypass substring matching; a full IOS parser would be required to close this gap completely.
 
 ## ✅ Input Parameter Validation (v5.0)
-- `ping`/`traceroute` `destination`: validated with `ipaddress.ip_address()` — rejects CLI injection via append (e.g. `"8.8.8.8 repeat 999999"`)
-- `ping`/`traceroute` `source`: validated as IP address or interface name regex — rejects arbitrary string injection
-- `get_bgp` `neighbor`: validated with `ipaddress.ip_address()` — rejects `"1.2.3.4 | include password"` style injection
-- `get_routing` `prefix`: validated as IPv4 address or CIDR regex
-- All `vrf` fields: validated as alphanumeric + underscore/dash, max 32 chars — rejects newline injection in VRF substitution
-- Jira `issue_key`: validated as `^[A-Z][A-Z0-9]+-\d+$` — prevents URL path traversal in Jira REST calls
-- Implemented in `input_models/models.py` at the Pydantic model layer
+Pydantic models in `input_models/models.py` validate all tool inputs at the MCP boundary:
+- `destination`/`source`: validated as IP address — rejects CLI injection via append (e.g. `"8.8.8.8 repeat 999999"`)
+- `neighbor`: validated as IP address — rejects `"1.2.3.4 | include password"` style injection
+- `prefix`: validated as IPv4 address or CIDR regex
+- `vrf`: alphanumeric + underscore/dash, max 32 chars — rejects newline injection
+- `issue_key`: `^[A-Z][A-Z0-9]+-\d+$` — prevents URL path traversal in Jira REST calls
 
-## ✅ TLS/SSL Configuration (Env-Var Only, Pitfall #12)
-- Controlled by: `RESTCONF_VERIFY_TLS`, `SSH_STRICT_HOST_KEY`
-- Read once at import time — not runtime-configurable
-- Agent cannot toggle or bypass TLS settings mid-session
-- **Lab vs. production note**: Both default to `false` for lab convenience. For production deployments, set both to `true` in `.env`. No startup warning is emitted — rely on deployment documentation.
+## ✅ Syslog Prompt Injection Mitigation (Strengthened in v5.0)
+Syslog messages sanitized via character allowlist (alphanumeric + safe network punctuation only) — all other characters replaced with spaces. Applied to all event fields before injection into the agent prompt and before writing to deferred/pending event files. Delimiter markers isolate log content from instructions.
 
-## ✅ Credential & Destructive Command Protection (Permission Deny Rules, v5.0)
-- `.env` and common secret file variants blocked from `Read` — prevents credential exposure (router creds, Jira token)
-- `Bash(env)`, `Bash(printenv *)`, `Bash(less .env*)`, `Bash(head .env*)` denied — closes common bypass vectors
-- `Bash(ssh *)`, `Bash(sshpass *)` denied — enforces Pitfall #5 at permission level, not just prompt level
-- `Bash(rm -rf *)` denied — prevents catastrophic file deletion
-- `git push --force` and `git reset --hard` denied — prevents irreversible git operations
-- `nc`, `curl`, `sudo docker`, `docker exec` removed from allow list — require explicit user approval each use
-- Defined in `.claude/settings.local.json` deny list
-- **Known residual risk**: `Bash(python3:*)` is broadly allowed and cannot be restricted without breaking test/tool execution; a `python3 -c` invocation reading `.env` would succeed. Mitigated by prompt-level instructions only.
-
-## ✅ Rollback Advisory (`push_config`)
-- Rollback advisory generated for every config change (inverting "no" prefixes for IOS CLI strings)
+**Known residual risk**: No sanitizer can fully prevent LLM prompt injection from adversarial ASCII text; this is a defense-in-depth measure.
 
 ---
 
-# 📊 Risk Assessment (`assess_risk`)
+# ⚙️ Config-Enforced Controls
 
-`assess_risk` assigns a **low / medium / high** risk level before any config push. Risk only escalates — it never de-escalates within a single assessment.
+Enforced by `.claude/settings.local.json` deny rules or environment variables — cannot be changed at runtime.
 
-**Escalation rules (applied in order, highest wins):**
+## ✅ Credential & Destructive Command Protection
+Deny rules in `.claude/settings.local.json`:
+- `.env` and common secret file variants blocked from `Read` — prevents credential exposure
+- `Bash(env)`, `Bash(printenv *)`, `Bash(less .env*)`, `Bash(head .env*)` denied — closes common bypass vectors
+- `Bash(ssh *)`, `Bash(sshpass *)` denied — enforces no-direct-SSH at permission level
+- `Bash(rm -rf *)` denied — prevents catastrophic file deletion
+- `git push --force` and `git reset --hard` denied — prevents irreversible git operations
+- `nc`, `curl`, `sudo docker`, `docker exec` require explicit user approval each use
 
-| Dimension | Condition | Risk |
-|-----------|-----------|------|
-| Device count | ≥ 3 devices | high |
-| Device count | > 1 device | medium |
-| Device role | Device has role ABR, ASBR, IGP_REDISTRIBUTOR, NAT_EDGE, or ROUTE_REFLECTOR (from `intent/INTENT.json`) | high |
-| SLA path impact | ≥ 3 SLA paths in `scope_devices` include a target device | high |
-| SLA path impact | 1–2 SLA paths affected | medium (upgrades from low only) |
-| Command content | Commands contain: `router`, `ospf`, `bgp`, or `isis` | high |
-| Command content | Commands contain: `shutdown` (but NOT `no shutdown` — restoration is excluded) | high |
+**Known residual risk**: `Bash(python3:*)` is broadly allowed and cannot be restricted without breaking test/tool execution; a `python3 -c` invocation reading `.env` would succeed. Mitigated by prompt-level instructions only.
 
-`assess_risk` is advisory only — it does not block changes. The user decides whether to proceed regardless of risk level.
+## ✅ TLS/SSL Configuration (Env-Var Only)
+Controlled by `RESTCONF_VERIFY_TLS` and `SSH_STRICT_HOST_KEY` — read once at import time, not runtime-configurable. Agent cannot toggle or bypass TLS settings mid-session.
 
+**Lab vs. production note**: Both default to `false` for lab convenience. For production deployments, set both to `true` in `.env`.
+
+---
+
+# 🧠 Behavioral Controls
+
+These depend on the LLM following prompt instructions. No code-level backstop — labeled here as behavioral.
+
+## ✅ Discord-Primary Approval
+When Discord is configured, `request_approval` is the mandatory gate before `push_config`. It posts a rich embed and polls for ✅/❌ emoji reaction. If Discord is not configured or approval expires, the agent logs to Jira and exits without pushing. The code-level approval gate (Section 1) independently enforces this — even if the agent skips `request_approval`, `push_config` will return an error.
+
+## ✅ Read-Only Policy Files
+`inventory/NETWORK.json` and `intent/INTENT.json` cannot be modified by the agent — both are instructed as read-only in CLAUDE.md and the deny rules limit write access.
+
+## ✅ On-Call Focus Enforcement
+Once invoked for an SLA failure, the agent focuses solely on that issue until completion. Deferred failures (arriving during an active session) are documented to Jira and Discord by the watcher after the session ends — no second agent session is spawned.
