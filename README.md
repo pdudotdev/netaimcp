@@ -12,8 +12,11 @@
 **On-request extensions:**<br/>
 ![Arista EOS](https://img.shields.io/badge/Arista-EOS-2A64D4) ![Juniper JunOS](https://img.shields.io/badge/Juniper-JunOS-009A44) ![MikroTik RouterOS](https://img.shields.io/badge/MikroTik-RouterOS-2A3042) ![Aruba AOS-CX](https://img.shields.io/badge/Aruba-AOS--CX-FF6600) ![SONiC](https://img.shields.io/badge/SONiC-FRR-9B9BD5) ![VyOS](https://img.shields.io/badge/VyOS-VyOS-5B9BD5)
 
-**On-request extensions:**<br/>
-![NETCONF](https://img.shields.io/badge/NETCONF-D4841A) ![REST](https://img.shields.io/badge/REST-7B52AB) ![gNMI](https://img.shields.io/badge/gNMI-2259B6) ![eAPI](https://img.shields.io/badge/eAPI-092991)
+**Current integrations:**<br/>
+![Jira](https://img.shields.io/badge/Jira-D4991B) ![NetBox](https://img.shields.io/badge/NetBox-725299) ![HashiCorp Vault](https://img.shields.io/badge/Vault-275226) ![Discord](https://img.shields.io/badge/Discord-493391)
+
+**Testing statistics:**<br/>
+![MTTR](https://img.shields.io/badge/MTTR-9%3A21%20min-orange) ![Average Cost per Session](https://img.shields.io/badge/Average%20Cost%2FSession-%241.86-006400)
 
 ## 📖 **Table of Contents**
 - 📜 **aiNOC**
@@ -47,8 +50,8 @@ AI-based **network troubleshooting framework** for multi-vendor, multi-protocol,
 - [x] **Human in the loop logic**
 - [x] **Discord integration**
 - [x] **Jira integration**
-- [x] **HashiCorp Vault (secrets)**
-- [x] **NetBox (inventory)**
+- [x] **HashiCorp Vault**
+- [x] **NetBox**
 
 ▫️ **Core vs. On-Request features**:
 - [x] **Core**: 
