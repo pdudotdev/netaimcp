@@ -20,7 +20,7 @@ Maximum 10 entries. Each entry: one actionable lesson in 1-3 lines.
 - Routine findings with no surprising diagnostic insight (e.g., "interface was admin-shutdown")
 - Transient or self-resolved issues with no actionable takeaway
 - Issues caused by lab setup or intentional test scenarios
-- Fixes already obvious from the 6 Core Principles or protocol skill checklists
+- Fixes already obvious from the 7 Core Principles or protocol skill checklists
 
 **Lesson format:**
 - Lead with the diagnostic insight or decision rule, not the story
@@ -45,5 +45,7 @@ Maximum 10 entries. Each entry: one actionable lesson in 1-3 lines.
 8. **Verify intent vs actual state before proposing a fix**: INTENT.json describes the desired network design, not the current device config. Attributes like `area_type`, `stub`, and `default_originate` may differ from the running configuration. Always verify with `get_<protocol>(device, "config")` before basing a fix on INTENT.json values — misreading intent as actual state leads to proposing a fix for a non-existent misconfiguration.
 
 9. **Aggressive BGP hold timers cause dual-ISP session flapping**: When both ISP sessions on an ASBR flap simultaneously, check `get_bgp(device, "neighbors", neighbor=<ip>)` for mismatched "hold time" vs "Configured hold time" lines. Non-default `timers <keepalive> <hold>` on neighbor statements (e.g. 3/9 instead of 60/180) make sessions fragile — any network jitter causes hold expiry and teardown, which cascades to downstream default route loss. Fix: `no neighbor X timers <k> <h>` to restore defaults. No session reset required if the change is applied inline; IOS renegotiates on the next OPEN.
+
+10. **Fix one layer at a time — never bundle cross-layer fixes**: When investigation reveals issues at multiple diagnostic layers (e.g., interface admin-down AND missing BGP default-originate), propose only the lowest-layer fix first. Verify whether the SLA path recovers. Higher-layer "issues" may be symptoms or consequences of the lower-layer failure, not independent problems. Bundling cross-layer fixes into one approval adds unnecessary risk and makes rollback ambiguous. Each fix is one assess_risk → request_approval → push_config → verify cycle.
 
 

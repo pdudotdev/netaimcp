@@ -78,7 +78,7 @@ def _call_notify(
             issue_key="SUP-46",
             session_name="oncall-test",
             session_start=session_start,
-            session_log=session_log,
+            session_json=session_log,
         )
 
 
@@ -172,7 +172,7 @@ class TestNotificationExclusivity:
         mock_error.assert_not_called()
 
     def test_normal_exit_skips_complete_when_approval_requested(self, tmp_path):
-        """Normal exit with recent approval file → neither embed posted (approval flow handles closure)."""
+        """Normal exit with recent approval file → complete embed posted with approval_used=True."""
         mock_error = AsyncMock()
         mock_complete = AsyncMock()
         session_log = _make_session_log(tmp_path)
@@ -199,7 +199,8 @@ class TestNotificationExclusivity:
             )
 
         mock_error.assert_not_called()
-        mock_complete.assert_not_called()
+        mock_complete.assert_called_once()
+        assert mock_complete.call_args.kwargs["approval_used"] is True
 
     def test_discord_api_failure_logged_not_raised(self, tmp_path, caplog):
         """Discord API error during error post → warning logged, exception not propagated."""

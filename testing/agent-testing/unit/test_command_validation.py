@@ -1,4 +1,4 @@
-"""Unit tests for validate_commands() — FORBIDDEN CLI list validation."""
+"""UT-006 — Command Validation: validate_commands() — FORBIDDEN CLI list validation."""
 import pytest
 from tools.config import validate_commands, FORBIDDEN
 

@@ -1,4 +1,4 @@
-"""Unit tests for input model validation (Literal enums, ShowCommand restriction, JSON parsing)."""
+"""UT-004 — Input Validation: input model validation (Literal enums, ShowCommand restriction, JSON parsing)."""
 import json
 import pytest
 from pydantic import ValidationError

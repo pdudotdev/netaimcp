@@ -39,14 +39,14 @@ After session ends, the watcher seeks to EOF and skips buffered events — preve
 
 ## ✅ Input Parameter Validation (v5.0)
 Pydantic models in `input_models/models.py` validate all tool inputs at the MCP boundary:
-- `destination`/`source`: validated as IP address — rejects CLI injection via append (e.g. `"8.8.8.8 repeat 999999"`)
+- `destination`: validated as IP address; `source`: validated as IP address or interface name (alphanumeric + `/:.-`, max 50 chars) — rejects CLI injection via append (e.g. `"8.8.8.8 repeat 999999"`)
 - `neighbor`: validated as IP address — rejects `"1.2.3.4 | include password"` style injection
 - `prefix`: validated as IPv4 address or CIDR regex
 - `vrf`: alphanumeric + underscore/dash, max 32 chars — rejects newline injection
 - `issue_key`: `^[A-Z][A-Z0-9]+-\d+$` — prevents URL path traversal in Jira REST calls
 
 ## ✅ Syslog Prompt Injection Mitigation (Strengthened in v5.0)
-Syslog messages sanitized via character allowlist (alphanumeric + safe network punctuation only) — all other characters replaced with spaces. Applied to all event fields before injection into the agent prompt and before writing to deferred/pending event files. Delimiter markers isolate log content from instructions.
+Syslog messages sanitized by stripping non-printable characters (Python `str.isprintable()` filter) and collapsing whitespace. Applied to all event fields before injection into the agent prompt and before writing to deferred/pending event files. Delimiter markers isolate log content from instructions.
 
 **Known residual risk**: No sanitizer can fully prevent LLM prompt injection from adversarial ASCII text; this is a defense-in-depth measure.
 
@@ -59,7 +59,7 @@ Enforced by `.claude/settings.local.json` deny rules or environment variables �
 ## ✅ Credential & Destructive Command Protection
 Deny rules in `.claude/settings.local.json`:
 - `.env` and common secret file variants blocked from `Read` — prevents credential exposure
-- `Bash(env)`, `Bash(printenv *)`, `Bash(less .env*)`, `Bash(head .env*)` denied — closes common bypass vectors
+- `Bash(env)`, `Bash(printenv *)`, `Bash(less .env*)`, `Bash(head .env*)`, `Bash(tail .env*)`, `Bash(more .env*)` denied — closes common bypass vectors
 - `Bash(ssh *)`, `Bash(sshpass *)` denied — enforces no-direct-SSH at permission level
 - `Bash(rm -rf *)` denied — prevents catastrophic file deletion
 - `git push --force` and `git reset --hard` denied — prevents irreversible git operations

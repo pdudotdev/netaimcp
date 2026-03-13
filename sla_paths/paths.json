@@ -4,7 +4,7 @@
       "id": "C1C_TO_IBN",
       "description": "C1C (ABR, Cisco c8000v) via OSPF Area 0 to E1C/E2C ASBRs (ECMP) then BGP to ISP B IBN",
       "source_device": "C1C",
-      "source_interface": "GigabitEthernet2",
+      "source_interface": "GigabitEthernet6",
       "source_ip": "10.0.0.25",
       "destination_device": "IBN",
       "destination_ip": "200.50.50.6",

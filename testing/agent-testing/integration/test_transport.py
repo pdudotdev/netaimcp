@@ -1,4 +1,4 @@
-"""Integration tests for transport layer (asyncssh, RESTCONF).
+"""IT-004 — Transport Layer: integration tests for transport layer (asyncssh, RESTCONF).
 
 These tests require a running lab (`sudo clab redeploy -t AINOC-TOPOLOGY.yml`).
 Run with: ./run_tests.sh integration
