@@ -393,23 +393,18 @@ def _post_discord_session_notification(
 ) -> None:
     """Post the appropriate Discord embed for a completed agent session.
 
-    Always posts a "closing session" plain-text message first, then exactly one embed:
+    Posts exactly one embed per session:
     - Timeout → red "Agent Session Error" (error_type="timeout")
     - Watcher exception → red "Agent Session Error" (error_type="watcher_error")
     - Non-zero exit code → red "Agent Session Error" (error_type="crash")
     - Normal exit (code 0 or None) → green "Session Complete"
+
+    The "closing session" plain-text message is posted by the agent immediately after
+    calling post_approval_outcome — bridging the gap between the outcome embed and this
+    summary embed for sessions that went through the approval flow.
     """
     if not discord_approval.is_configured():
         return
-
-    try:
-        asyncio.run(discord_approval.post_progress_update(
-            "🧹 Closing the session now.\n"
-            "Any new lessons saved to `lessons.md`\n"
-            "Waiting for the session summary..."
-        ))
-    except Exception as exc:
-        _wlog.warning("Failed to post closing message to Discord: %s", exc)
 
     try:
         if timed_out:

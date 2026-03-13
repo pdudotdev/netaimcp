@@ -25,6 +25,7 @@ from core.discord_approval import (
     post_approval_request,
     poll_for_reaction,
     post_outcome,
+    post_progress_update,
 )
 from input_models.models import ApprovalInput, ApprovalOutcomeInput
 
@@ -202,6 +203,18 @@ async def post_approval_outcome(params: ApprovalOutcomeInput) -> dict:
             p.decision,
             p.verified,
         )
+        # Immediately notify the operator that the session is wrapping up.
+        # The watcher will post the session-complete embed (cost + duration) after the
+        # agent exits — this message bridges the 10-20s gap between the outcome embed
+        # and the session summary so the operator knows a final embed is coming.
+        try:
+            await post_progress_update(
+                "🧹 Closing the session now.\n"
+                "Any new lessons saved to `lessons.md`\n"
+                "Waiting for the session summary..."
+            )
+        except Exception:
+            pass  # best-effort — closing message is informational
         return {"status": "posted"}
     except Exception as e:
         log.warning("Failed to post Discord outcome: %s", e)
