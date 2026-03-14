@@ -364,7 +364,9 @@ def _write_dashboard_state(state: dict) -> None:
     """
     try:
         DASHBOARD_STATE_FILE.parent.mkdir(exist_ok=True)
-        DASHBOARD_STATE_FILE.write_text(json.dumps(state))
+        tmp = DASHBOARD_STATE_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(state))
+        tmp.replace(DASHBOARD_STATE_FILE)  # atomic rename — avoids partial-read in bridge
     except Exception as e:
         _wlog.debug("Could not write dashboard state: %s", e)
 
@@ -525,8 +527,8 @@ def invoke_claude(event, device_map):
     """
     Invoke Claude Code with SLA event context in a detached tmux session (print mode).
     Claude processes the prompt autonomously and exits when done — no interactive CLI.
-    Output is captured via --output-format json to logs/session-oncall-<timestamp>.md
-    (contains full response + cost/usage metadata).
+    Output is captured via --output-format stream-json to logs/.session-oncall-<timestamp>.tmp
+    (NDJSON stream of all events; final "result" line contains cost/usage metadata).
     After the session, scans for deferred failures and documents them to Jira + Discord.
     """
     device_ip = event.get("device", event.get("source_ip", "unknown"))

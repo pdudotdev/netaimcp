@@ -45,7 +45,7 @@ class JSONFormatter(logging.Formatter):
         for key, val in record.__dict__.items():
             if key not in _STANDARD_ATTRS:
                 entry[key] = val
-        return json.dumps(entry)
+        return json.dumps(entry, default=str)
 
 
 def _make_formatter() -> logging.Formatter:

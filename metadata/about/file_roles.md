@@ -144,7 +144,7 @@ When an SLA path fails:
 
 Contains:
 
-- 6-principle troubleshooting methodology
+- 7-principle troubleshooting methodology
 - On-Call workflow (primary mode)
 - Complete MCP tool list (15 tools)
 - Lessons curation process

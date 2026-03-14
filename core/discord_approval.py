@@ -147,8 +147,9 @@ async def post_approval_request(
             f"{DISCORD_API}/channels/{_channel()}/messages/{message_id}"
             f"/reactions/{_APPROVE_ENC}/@me",
             headers=_auth_headers(),
-        ):
-            pass
+        ) as resp:
+            if resp.status not in (200, 204):
+                log.warning("Failed to add ✅ reaction (HTTP %d) — operator cannot approve via Discord", resp.status)
 
         await asyncio.sleep(0.3)  # Brief pause to stay within Discord rate limits
 
@@ -157,8 +158,9 @@ async def post_approval_request(
             f"{DISCORD_API}/channels/{_channel()}/messages/{message_id}"
             f"/reactions/{_REJECT_ENC}/@me",
             headers=_auth_headers(),
-        ):
-            pass
+        ) as resp:
+            if resp.status not in (200, 204):
+                log.warning("Failed to add ❌ reaction (HTTP %d) — operator cannot reject via Discord", resp.status)
 
     log.info("Discord approval request posted: message_id=%s", message_id)
     return message_id

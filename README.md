@@ -26,6 +26,7 @@
 ![HashiCorp Vault](https://img.shields.io/badge/HashiCorp%20Vault-supported-2f2fac)
 
 **Testing statistics:**<br/>
+![MTTD](https://img.shields.io/badge/MTTD-4%20seconds-1bb919)
 ![MTTR](https://img.shields.io/badge/MTTR-8%20minutes-1bb919)
 ![Average Cost per Session](https://img.shields.io/badge/Average%20Cost%2FSession-%241.86-1bb919)
 

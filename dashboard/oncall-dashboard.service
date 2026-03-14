@@ -23,7 +23,7 @@ StandardError=journal
 SyslogIdentifier=ainoc-dashboard
 
 # Environment — .env loaded by Python's load_dotenv() at runtime.
-# Override ports via DASHBOARD_WS_PORT / DASHBOARD_HTTP_PORT if needed.
+# Override port via DASHBOARD_PORT (default: 5555, serves both HTTP and WebSocket).
 
 [Install]
 WantedBy=multi-user.target

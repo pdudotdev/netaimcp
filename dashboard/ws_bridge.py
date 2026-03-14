@@ -189,8 +189,9 @@ async def _tail_session_file(path: Path) -> None:
         if SESSION_STATE.get("state") != "active":
             # Drain any remaining lines before stopping
             try:
-                text = path.read_text(errors="replace")
-                remainder = text[position:]
+                with open(path, errors="replace") as fh:
+                    fh.seek(position)
+                    remainder = fh.read()
                 for line in remainder.splitlines():
                     line = line.strip()
                     if line:
@@ -203,12 +204,12 @@ async def _tail_session_file(path: Path) -> None:
             return
 
         try:
-            text = path.read_text(errors="replace")
+            with open(path, errors="replace") as fh:
+                fh.seek(position)
+                new_text = fh.read()
         except FileNotFoundError:
             await asyncio.sleep(TAIL_POLL_INTERVAL)
             continue
-
-        new_text = text[position:]
         if new_text:
             lines = new_text.split("\n")
             # If text doesn't end in newline, last item is a partial line — hold it
@@ -263,6 +264,10 @@ async def watch_state_file() -> None:
                 # New session started — cancel any previous tail task
                 if tail_task and not tail_task.done():
                     tail_task.cancel()
+                    try:
+                        await tail_task
+                    except asyncio.CancelledError:
+                        pass
 
                 last_session_name = session_name
                 EVENT_BUFFER.clear()
@@ -282,7 +287,10 @@ async def watch_state_file() -> None:
             last_session_name = None
             if tail_task and not tail_task.done():
                 tail_task.cancel()
-            await asyncio.sleep(0.3)  # brief delay so tail drains remaining lines
+                try:
+                    await tail_task
+                except asyncio.CancelledError:
+                    pass
             await _broadcast({"ui_type": "session_idle"})
 
         await asyncio.sleep(0.5)  # poll state file every 500ms
