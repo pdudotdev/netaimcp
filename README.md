@@ -62,7 +62,8 @@ AI-based **network troubleshooting framework** for multi-vendor, multi-protocol,
 - [x] **NETCONF/REST/gNMI/eAPI (extensions)**
 - [x] **15 MCP tools, 4 skills**
 - [x] **12 operational guardrails**
-- [x] **Human in the loop logic**
+- [x] **HITL for any config changes**
+- [x] **Dashboard for agent monitoring**
 - [x] **Discord integration**
 - [x] **Jira integration**
 - [x] **HashiCorp Vault**
@@ -199,24 +200,27 @@ The included `CLAUDE.md` and `skills/*` are templates. **Customize them** with y
 - aiNOC monitors Vector's `/var/log/network.json` file for specific logs and parses them per-vendor
 
 ▫️ **Step 4**:
-Run the **aiNOC** watcher service. Claude is invoked non-interactively via **tmux + print mode** (`-p`). The human operator interacts via **Discord** (approval/rejection embeds) — not the terminal.
+Run the **aiNOC** watcher and dashboard services. 
+Claude is invoked non-interactively via **tmux + print mode** (`-p`) with a default prompt template. 
+The human operator monitors agent operations via the **web dashboard on <IP>:5555**, and interacts via **Discord** (fix approval/rejection embeds).
 
 ```bash
 sudo apt install tmux
 sudo cp oncall/oncall-watcher.service /etc/systemd/system/
+sudo cp oncall/oncall-dashboard.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now oncall-watcher.service
+sudo systemctl enable --now oncall-dashboard.service
 ```
 Manage with:
 `systemctl start | stop | restart | status oncall-watcher`
-
-Full agent session output is always saved to `logs/session-oncall-<timestamp>.md` for traceability and human audit.
 
 ▫️ **Step 5**:
 Check if the **service** and **Vector** are running:
 ```
 sudo systemctl status vector
 sudo systemctl status oncall-watcher.service
+sudo systemctl status oncall-dashboard.service
 ```
 
 ## 🔄 Test Network Topology
