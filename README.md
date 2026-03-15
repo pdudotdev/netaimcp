@@ -11,6 +11,12 @@
 ![RESTCONF](https://img.shields.io/badge/RESTCONF-primary-orange)
 ![CLI](https://img.shields.io/badge/CLI-fallback-orange)
 
+**Core version integrations:**<br/>
+![Jira](https://img.shields.io/badge/Jira-supported-2f2fac)
+![NetBox](https://img.shields.io/badge/NetBox-supported-2f2fac)
+![Discord](https://img.shields.io/badge/Discord-supported-2f2fac)
+![HashiCorp Vault](https://img.shields.io/badge/HashiCorp%20Vault-supported-2f2fac)
+
 **On-request extensions:**<br/>
 ![Arista EOS](https://img.shields.io/badge/Arista-EOS-6F42C1)
 ![Juniper JunOS](https://img.shields.io/badge/Juniper-JunOS-6F42C1)
@@ -19,11 +25,11 @@
 ![SONiC](https://img.shields.io/badge/SONiC-FRR-6F42C1)
 ![VyOS](https://img.shields.io/badge/VyOS-VyOS-6F42C1)
 
-**Current integrations:**<br/>
-![Jira](https://img.shields.io/badge/Jira-supported-2f2fac)
-![NetBox](https://img.shields.io/badge/NetBox-supported-2f2fac)
-![Discord](https://img.shields.io/badge/Discord-supported-2f2fac)
-![HashiCorp Vault](https://img.shields.io/badge/HashiCorp%20Vault-supported-2f2fac)
+**On-request extensions:**<br/>
+![NETCONF](https://img.shields.io/badge/NETCONF-005fa6)
+![REST APIs](https://img.shields.io/badge/REST%20APIs-005fa6)
+![gNMI](https://img.shields.io/badge/gNMI-005fa6)
+![eAPI](https://img.shields.io/badge/eAPI-005fa6)
 
 **Testing statistics:**<br/>
 ![MTTD](https://img.shields.io/badge/MTTD-4%20seconds-1bb919)
@@ -92,8 +98,8 @@ AI-based **network troubleshooting framework** for multi-vendor, multi-protocol,
 - [x] See [**scalability guide**](metadata/about/scalability.md)
 
 ▫️ **Supported models**:
-- [x] Haiku 4.5 (best for costs)
-- [x] **Sonnet 4.6 (best balance)**
+- [x] Haiku 4.5
+- [x] Sonnet 4.6
 - [x] Opus 4.6 (default, best reasoning)
 
 ⚠️ **NOTE:** Due to the intermittent nature of troubleshooting, it's worth using an advanced model by default. Costs won't become unsustainable even if addressing and fixing several issues per day.
@@ -151,8 +157,8 @@ Create `settings.json` under `.claude/`:
 
 | Management | Devices | Tier | Status |
 |-----------|---------|------|--------|
-| RESTCONF (httpx) | Cisco IOS-XE | Primary | Core |
-| CLI (scrapli) | Cisco IOS-XE | Fallback | Core |
+| RESTCONF | Cisco IOS-XE | Primary | Core |
+| CLI | Cisco IOS-XE | Fallback | Core |
 | NETCONF | custom | — | On-Request |
 | REST API | custom | — | On-Request |
 | gNMI | custom | — | On-Request |
@@ -202,9 +208,9 @@ The included `CLAUDE.md` and `skills/*` are templates. **Customize them** with y
 ▫️ **Step 4**:
 Run the **aiNOC** watcher and dashboard services. 
 Claude is invoked non-interactively via **tmux + print mode** (`-p`) with a default prompt template. 
-The human operator monitors agent operations via the **web dashboard on <IP>:5555**, and interacts via **Discord** (fix approval/rejection embeds).
+The human operator monitors agent operations via the **web dashboard on <IP>:5555**, and interacts via **Discord** (fix approval ✅ or rejection ❌ embeds).
 
-```bash
+```
 sudo apt install tmux
 sudo cp oncall/oncall-watcher.service /etc/systemd/system/
 sudo cp dashboard/oncall-dashboard.service /etc/systemd/system/
@@ -239,23 +245,21 @@ aiNOC runs as an **on-call watcher** that monitors Vector's `/var/log/network.js
 
 ### How It Works
 
-1. Network devices track connectivity paths (Cisco IP SLA — extensible to Arista Connectivity Monitor, Juniper RPM probes, MikroTik Netwatch etc. via module builds)
-2. Failures are logged to Syslog → **Vector** parses and writes to `/var/log/network.json`
-3. **`oncall/watcher.py`** detects the failure, opens a **Jira** ticket, and invokes a Claude agent session
-4. Agent follows structured troubleshooting: `CLAUDE.md` + `/skills` + `MCP tools` → identifies root cause → proposes fix
-5. Only upon **human operator approval** via Discord, the agent applies and verifies the fix
-6. Results are logged to **Jira** and **Discord**, and the watcher resumes monitoring
+1. Network devices track connectivity paths (Cisco **IP SLA** — extensible to Arista Connectivity Monitor, Juniper RPM probes, MikroTik Netwatch etc.)
+2. Failures are logged remotely to **Syslog** → **Vector** records, parses, and writes to `/var/log/network.json`
+3. `oncall-watcher` service detects the SLA failure, opens a **Jira** ticket, and invokes the **aiNOC agent** session
+4. **Web dashboard** is activated and displays agent's work in real time. User is notified and kept in the loop via **Discord**.
+5. Agent follows structured troubleshooting methodology: `CLAUDE.md` + `/skills` + `MCP tools` → identifies root cause(s) → proposes fix
+6. Only upon **human operator approval** via Discord, the agent applies and verifies the fix, otherwise issue is documented and the case stays open
+7. Case resolution is logged to **Jira** and **Discord**, and the watcher resumes monitoring
+8. aiNOC agent learns a new lesson about network troubleshooting and documents to `lessons.md`
 
 See [**Installation & Usage**](#️-installation--usage) for instructions.
 
-### Storm Prevention
-
-Only one agent session runs at a time. Concurrent SLA failures during an active session are captured and documented to Jira and Discord after the session ends — they are not re-triggered or investigated automatically. A drain mechanism ensures no duplicate event processing. A process-level lock file (`oncall/oncall.lock`) with stale-PID detection prevents duplicate watcher instances.
-
 ## ⬆️ Planned Upgrades
-- [ ] New protocols and services
-- [ ] Performance-based SLAs
+- [ ] New protocols
 - [ ] Slack support
+- [ ] Performance SLAs
 
 ## ♻️ Repository Lifecycle
 **New features** are being added periodically (protocols, integrations, optimizations).
@@ -276,6 +280,6 @@ The source code is available for research, educational, and non-commercial use. 
 ## 📧 Collaborations
 Interested in collaborating?
 - **Email**:  
-  - Reach out at **hello@ainoc.dev**
+  - Reach out at [**hello@ainoc.dev**](mailto:hello@ainoc.dev)
 - **LinkedIn**:
   - Let's discuss via [**LinkedIn**](https://www.linkedin.com/in/tmihaicatalin/)
