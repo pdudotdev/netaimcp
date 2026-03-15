@@ -25,7 +25,9 @@ def _load_json_fallback() -> dict:
 _netbox_result = load_devices()
 if _netbox_result:
     devices: dict = _netbox_result
+    inventory_source: str = "NetBox"
     _log.info("Inventory: loaded %d device(s) from NetBox", len(devices))
 else:
     devices: dict = _load_json_fallback()
+    inventory_source: str = "NETWORK.json"
     _log.info("Inventory: loaded %d device(s) from NETWORK.json (NetBox not available)", len(devices))

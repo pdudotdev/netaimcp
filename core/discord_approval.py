@@ -299,12 +299,19 @@ async def post_investigation_started(
     event_ts: str,
     issue_key: str | None = None,
     session_name: str | None = None,
+    inventory_source: str | None = None,
+    credential_source: str | None = None,
 ) -> None:
     """Post an informational embed when an on-call investigation begins. No reactions, no polling."""
     if not is_configured():
         return
 
     ticket_line = f"**Jira ticket:** {issue_key}" if issue_key else "No Jira ticket"
+    source_line = (
+        f"\n📦 Inventory: {inventory_source} · 🔑 Credentials: {credential_source}"
+        if inventory_source and credential_source
+        else ""
+    )
 
     embed = {
         "title": f"🚨 NEW ISSUE: DEVICE {device_name} — Investigation Started",
@@ -312,7 +319,7 @@ async def post_investigation_started(
             f"**Device:** {device_name} ({device_ip})\n"
             f"**Event:** {_truncate(event_msg, 300)}\n"
             f"**Event time:** {event_ts}\n"
-            f"{ticket_line}\n\n"
+            f"{ticket_line}{source_line}\n\n"
             f"⏳ *Currently investigating — please wait for summary and proposed fix.*"
         ),
         "color": 0x3498DB,  # blue — informational

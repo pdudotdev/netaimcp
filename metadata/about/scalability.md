@@ -2,16 +2,13 @@
 
 ## Purpose
 
-This document is a reference for contributors adding new protocols or vendors.
-It describes the exact files to touch, the order to touch them, and architectural
-bottlenecks to be aware of as the system grows.
+This document is a reference for architectural bottlenecks to be aware of as the system grows.
 
 ---
 
-## Key Concepts for Contributors
+## Key Concepts
 
-Read this section before touching any code. These are the architectural patterns
-every recipe step depends on.
+Read this section before moving further.
 
 ### `transport` vs `cli_style` are independent axes
 

@@ -4,6 +4,40 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [v5.5.1]
+
+> Dashboard UX improvements, source visibility, manual test suite, and setup documentation hardening.
+
+### 📊 Dashboard UX
+- **COPY buttons**: per-panel clipboard buttons on AGENT REASONING and TOOL CALLS panels — copy full panel content as plain text
+- **Session hold + DISMISS**: when a session ends, panels remain visible (status → "Completed — Monitoring"). A **✕ DISMISS** button returns to the idle overlay on demand. A new session auto-dismisses any held content.
+- **MCP tool badge styling**: MCP tools (e.g. `get_ospf`, `traceroute`) rendered with a distinct `.tool-name.mcp` badge to visually distinguish them from built-in Claude tools (Read, Edit, Bash)
+- **MCP params unwrapping**: tool input display strips the outer `{params: ...}` wrapper that MCP tools use internally, showing clean parameter key/value pairs
+- **Font size**: bumped +1px across all UI elements for improved readability
+
+### 🔍 Source Visibility
+- New **SOURCE** meta-group in the dashboard header: shows `<inventory> · <credentials>` (e.g. `NetBox · Vault` or `NETWORK.json · .env`) when a session is active
+- Same info added to the Discord "Investigation Started" embed (`📦 Inventory: X · 🔑 Credentials: Y` line)
+- `core/inventory.py`: exposes `inventory_source` module-level string (`"NetBox"` or `"NETWORK.json"`)
+- `core/vault.py`: new `credential_source()` — probes Vault for the `ainoc/router` secret if not yet cached, returns `"Vault"` or `".env"`. Self-sufficient in any process regardless of import order.
+- `oncall/watcher.py`: passes both sources to `_write_dashboard_state()` and `post_investigation_started()` at session start; logs both at watcher startup
+
+### 🧪 Manual Test Suite
+- 55 OSPF/BGP troubleshooting scenarios added to `testing/manual_testing.md`:
+  - **27 OSPF tests**: covers all 7 adjacency criteria (hello/dead timers, area ID/type, network type, authentication, passive interface, MTU, Router ID uniqueness)
+  - **28 BGP tests**: covers all 6 session formation criteria + 11 path selection attributes (Weight through Neighbor IP tie-break)
+- Operator applies break configs via SSH; agent diagnoses and proposes fix
+
+### 📚 Documentation
+- `metadata/vault/vault_setup.md`: added **Production: Initialization** section — switching vault.hcl to HTTP listener, `vault operator init`, `vault operator unseal`, KV engine enable, and unseal-on-reboot caveat
+- `metadata/netbox/netbox_setup.md`: added **Production: Boot Persistence** section — restart policies for Docker Compose containers and optional systemd unit
+
+### 🧪 Testing
+- UT-026 schema guard updated for new `inventory_source` and `credential_source` fields in active session state
+- 610 unit tests passing
+
+---
+
 ## [v5.5.0]
 
 > Real-time agent observability dashboard, session stop mechanism, SSH timeout optimizations.

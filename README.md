@@ -243,7 +243,7 @@ See [**Installation & Usage**](#️-installation--usage) for instructions.
 - [x] **aiNOC v5.5**
 
 ## 📄 Disclaimer
-You are responsible for defining your own troubleshooting methodologies and context files, as well as building your own test environment and meeting the necessary conditions (e.g., RAM/vCPU, router OS images, Claude subscription/API key, etc.).
+You are responsible for defining your own troubleshooting methodologies and context files, as well as building your own test environment and meeting the necessary conditions (e.g., RAM/CPU, Claude subscription/API key, etc.).
 
 ## 📜 License
 Licensed under the [**Business Source License 1.1**](https://github.com/pdudotdev/aiNOC/blob/main/LICENSE).

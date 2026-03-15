@@ -64,3 +64,15 @@ def get_secret(path: str, key: str, fallback_env: str = "") -> str | None:
         )
         _cache[path] = _VAULT_FAILED  # sentinel: Vault unavailable, use env var fallback
         return os.getenv(fallback_env) if fallback_env else None
+
+
+def credential_source() -> str:
+    """Return 'Vault' if router secrets were loaded from Vault, else '.env'."""
+    if "ainoc/router" not in _cache:
+        # Probe Vault to populate the cache. This makes credential_source() self-sufficient
+        # in any process (watcher, MCP server) regardless of whether core/settings.py was imported.
+        get_secret("ainoc/router", "username", "ROUTER_USERNAME")
+    cached = _cache.get("ainoc/router")
+    if cached is not None and cached is not _VAULT_FAILED:
+        return "Vault"
+    return ".env"

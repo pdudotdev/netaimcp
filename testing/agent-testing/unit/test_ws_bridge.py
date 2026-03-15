@@ -397,6 +397,8 @@ class TestSessionState:
             "issue_key": "NOC-142",
             "started_at": "2026-03-14T12:00:00+00:00",
             "session_file": "/home/mcp/aiNOC/logs/.session-oncall-20260314-120000.tmp",
+            "inventory_source": "NetBox",
+            "credential_source": "Vault",
         }
         assert bridge.SESSION_STATE["state"] == "active"
         assert bridge.SESSION_STATE["device_name"] == "C1C"
@@ -404,6 +406,7 @@ class TestSessionState:
         expected_keys = (
             "state", "session_name", "device_name", "device_ip",
             "issue_key", "started_at", "session_file",
+            "inventory_source", "credential_source",
         )
         for key in expected_keys:
             assert key in bridge.SESSION_STATE, f"Missing key in active SESSION_STATE schema: {key}"

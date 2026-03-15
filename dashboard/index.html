@@ -415,6 +415,11 @@
     <span class="value highlight" id="hdr-jira">—</span>
   </div>
 
+  <div class="meta-group" id="hdr-source-group" style="display:none">
+    <span class="label">SOURCE</span>
+    <span class="value" id="hdr-source">—</span>
+  </div>
+
   <div class="meta-group" id="hdr-elapsed-group" style="display:none">
     <span class="label">ELAPSED</span>
     <span class="value" id="hdr-elapsed">0s</span>
@@ -576,6 +581,10 @@ function onSessionStart(msg) {
   showMeta("hdr-device-group", "hdr-device", msg.device_name || msg.device_ip || "—");
   showMeta("hdr-session-group", "hdr-session", (msg.session_name || "").replace("oncall-", ""));
   showMeta("hdr-jira-group", "hdr-jira", msg.issue_key || "—");
+  if (msg.inventory_source || msg.credential_source) {
+    const srcText = [msg.inventory_source, msg.credential_source].filter(Boolean).join(" · ");
+    showMeta("hdr-source-group", "hdr-source", srcText);
+  }
   showMeta("hdr-elapsed-group", "hdr-elapsed", "0s");
   showMeta("hdr-cost-group", "hdr-cost", "—");
 
@@ -597,6 +606,7 @@ function onSessionIdle() {
   hideMeta("hdr-device-group");
   hideMeta("hdr-session-group");
   hideMeta("hdr-jira-group");
+  hideMeta("hdr-source-group");
   hideMeta("hdr-elapsed-group");
   hideMeta("hdr-cost-group");
 

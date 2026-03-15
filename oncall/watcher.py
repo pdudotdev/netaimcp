@@ -531,6 +531,9 @@ def invoke_claude(event, device_map):
     (NDJSON stream of all events; final "result" line contains cost/usage metadata).
     After the session, scans for deferred failures and documents them to Jira + Discord.
     """
+    from core.inventory import inventory_source
+    from core.vault import credential_source
+
     device_ip = event.get("device", event.get("source_ip", "unknown"))
     device_name = resolve_device(device_ip, device_map)
 
@@ -612,6 +615,8 @@ def invoke_claude(event, device_map):
             event_ts=event.get("ts", "unknown"),
             issue_key=issue_key,
             session_name=session_name,
+            inventory_source=inventory_source,
+            credential_source=credential_source(),
         ))
     except Exception:
         _wlog.debug("Discord investigation-started notification failed (non-blocking)")
@@ -649,6 +654,8 @@ def invoke_claude(event, device_map):
         "issue_key": issue_key,
         "started_at": session_start.isoformat(),
         "session_file": str(session_json),
+        "inventory_source": inventory_source,
+        "credential_source": credential_source(),
     })
 
     try:
@@ -840,6 +847,11 @@ def main():
         _wlog.info("Jira integration: ENABLED (project: %s)", os.getenv("JIRA_PROJECT_KEY", "?"))
     else:
         _wlog.warning("Jira integration: DISABLED — set JIRA_* variables in .env")
+
+    from core.inventory import inventory_source
+    from core.vault import credential_source
+    _wlog.info("Inventory source: %s", inventory_source)
+    _wlog.info("Credential source: %s", credential_source())
 
     if not shutil.which("tmux"):
         print("ERROR: tmux is required. Install with: apt install tmux", file=sys.stderr)
