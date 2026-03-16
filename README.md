@@ -93,7 +93,7 @@ Create `settings.json` under `.claude/`:
 ![arch](metadata/topology/ARCHv5.png)
 
 ## 🍀 Here's a Quick Demo
-- [x] *Demo video for v5.0 coming soon*
+- [x] See a [**DEMO**](https://www.youtube.com/watch?v=w5E-MTINkyU) of **aiNOC v5.5**
 
 ## ⭐ What's New in v5.5
 - [x] See [**changelog.md**](changelog.md)
