@@ -62,11 +62,10 @@ in `tools/protocol.py` following the same pattern.
 
 ### Skill file pattern
 
-Each skill has two files:
-- `SKILL.example.md` — template showing the expected structure, **checked into git**
-- `SKILL.md` — the real network-specific decision tree, **gitignored**
+Each skill has one file:
+- `SKILL.md` — protocol-specific decision tree with prerequisite checks, symptom sections, and fix guidance
 
-Both files live in `skills/<protocol>/`. Always create both.
+Skill files live in `skills/<protocol>/`.
 
 ---
 
@@ -76,7 +75,7 @@ Protocols supported today: OSPF, BGP, routing policies/table.
 
 Candidate protocols: IS-IS, VRRP/HSRP, MSTP/STP, PIM/IGMP, LAG/LACP, VPN (L3VPN).
 
-### Recipe (10 steps, ~2-4 hours)
+### Recipe (9 steps, ~2-4 hours)
 
 | Step | File | Action |
 |------|------|--------|
@@ -85,13 +84,12 @@ Candidate protocols: IS-IS, VRRP/HSRP, MSTP/STP, PIM/IGMP, LAG/LACP, VPN (L3VPN)
 | 3 | `tools/protocol.py` | Add a handler following the `get_ospf()` pattern: look up device → `get_action(device, "<protocol>", params.query, vrf=params.vrf)` → `execute_command(device, action)` → optional `_trim_<protocol>(result, query)` → return. If RESTCONF is supported and returns noisy output, add the trimmer function in the same file. |
 | 4 | `MCPServer.py` | Register the tool: `mcp.tool(name="get_<protocol>")(get_<protocol>)`. |
 | 5 | `platforms/mcp_tool_map.json` | Add a tool entry with `platform_map_section` and `queries` per `cli_style`. This drives the Pitfall #1 lookup that prevents agents from falling back to `run_show`. |
-| 6 | `skills/<protocol>/SKILL.example.md` | Create the skill template: PREREQUISITE section (which MCP tools to run first) → Symptom sections (decision trees with exact tool calls) → Fix Guidance. Mirror the structure of `skills/ospf/SKILL.example.md`. |
-| 7 | `skills/<protocol>/SKILL.md` | Create the real skill file (gitignored) with topology-specific decision trees and device-specific observations. |
-| 8 | `skills/oncall/SKILL.md` | Add a row to the oncall triage table so on-call sessions route to the new skill for the right breaking-hop symptom. |
-| 9 | `CLAUDE.md` | Add the tool to the Available Tools list (under the appropriate category bullet). Add a row to the Skills Library table. |
-| 10 | Tests | See test checklist below. |
+| 6 | `skills/<protocol>/SKILL.md` | Create the skill file: PREREQUISITE section (which MCP tools to run first) → Symptom sections (decision trees with exact tool calls) → Fix Guidance. Include topology-specific decision trees and device-specific observations. Mirror the structure of `skills/ospf/SKILL.md`. |
+| 7 | `skills/oncall/SKILL.md` | Add a row to the oncall triage table so on-call sessions route to the new skill for the right breaking-hop symptom. |
+| 8 | `CLAUDE.md` | Add the tool to the Available Tools list (under the appropriate category bullet). Add a row to the Skills Library table. |
+| 9 | Tests | See test checklist below. |
 
-Steps 1–5 are code changes and independently testable. Steps 6–9 are documentation only.
+Steps 1–5 are code changes and independently testable. Steps 6–8 are documentation only.
 
 ### Protocol Test Checklist
 

@@ -168,9 +168,7 @@ pip install -r requirements.txt
 ```
 
 ▫️ **Step 2**:
-The included `CLAUDE.md` and `skills/*` are templates. **Customize them** with your own troubleshooting methodology, tool descriptions, and operational guidelines.
-
-⚠️ **NOTE**: There is no one-size-fits-all `CLAUDE.md` or `SKILL.md` that works in any network environment. These should be customized for each specific topology, vendor combination, and architecture.
+Review `CLAUDE.md` and `skills/*/SKILL.md` for the troubleshooting methodology, tool descriptions, and operational guidelines. For your own deployment, customize these files for your specific topology, vendor combination, and architecture.
 
 ▫️ **Step 3**:
 - Configure IP SLA (or Connectivity Monitor, Netwatch etc.) paths in your network

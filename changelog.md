@@ -336,7 +336,7 @@ All notable changes to this project are documented in this file.
 - Added structured JSON logging with configurable levels
 
 ### 🧠 Troubleshooting Methodology
-- Introduced **6 Core Troubleshooting Principles** (mandatory, ordered) — see `CLAUDE.example.md`
+- Introduced **6 Core Troubleshooting Principles** (mandatory, ordered) — see `CLAUDE.md`
 - Rewrote Standalone Mode into 10 deterministic steps with decision gates
 - Added protocol skill prerequisite gates (interfaces + neighbors verified before deep investigation)
 - Implemented role-aware risk assessment using `INTENT.json` and SLA paths
@@ -369,7 +369,7 @@ All notable changes to this project are documented in this file.
 - Updated `INTENT.json` for cleaner network context
 - Added `CLAUDE.md` with defined workflows and guidance
 - Added troubleshooting skills for improved coherence
-- Added `cases.md` and `lessons.md` (see `/cases.example`)
+- Added `cases.md` and `lessons.md` (see `cases/`)
 - aiNOC now documents cases and curates reusable lessons
 
 ### 🧪 Testing & Quality

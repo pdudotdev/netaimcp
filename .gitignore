@@ -28,9 +28,3 @@ testing/manual_results/
 
 # Discord approval runtime state — runtime-only, never commit
 data/
-
-# Proprietary behavioral artifacts — use .example.md versions as templates
-CLAUDE.md
-skills/*/SKILL.md
-
-# WARNING: In real production environments, NEVER commit device configs containing credentials.
